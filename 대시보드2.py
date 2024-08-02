@@ -7,13 +7,18 @@ from collections import Counter
 import plotly.graph_objects as go
 
 # JSONL 파일에서 데이터 불러오기
-def load_data(file_path):
-    with open(file_path, 'r', encoding='utf-8') as file:
-        return [json.loads(line) for line in file]
+def load_data(file_name):
+    try:
+        with open(file_name, 'r', encoding='utf-8') as file:
+            return [json.loads(line) for line in file]
+    except FileNotFoundError:
+        st.error(f"Error: The file '{file_name}' was not found.")
+        st.write("Current working directory:", os.getcwd())
+        st.write("Files in current directory:", os.listdir())
+        st.stop()
 
 # 데이터 불러오기
 certificates_data = load_data("대시보드2.jsonl")
-
 # 데이터프레임 생성 및 전처리
 df = pd.DataFrame(certificates_data)
 mlb = MultiLabelBinarizer()
