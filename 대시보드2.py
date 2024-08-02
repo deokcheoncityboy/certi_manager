@@ -12,7 +12,7 @@ def load_data(file_path):
         return [json.loads(line) for line in file]
 
 # 데이터 불러오기
-certificates_data = load_data("dashboard.jsonl")
+certificates_data = load_data("https://deokcheoncityboy.github.io/certi_manager/dashboard.jsonl")
 
 # 데이터프레임 생성 및 전처리
 df = pd.DataFrame(certificates_data)
