@@ -158,40 +158,51 @@ def classify_duration(months):
 st.set_page_config(layout="wide", page_title="학생 종합 역량 관리 시스템")
 st.title("🎓 학생 종합 역량 관리 시스템")
 
-# 사이드바: 사용자 정보 입력
-st.sidebar.header("사용자 정보 입력")
-grade = st.sidebar.selectbox("학년", [1, 2, 3, 4])
-department = st.sidebar.selectbox("학부", list(departments.keys()))
+# 사이드바 구성
+with st.sidebar:
+    st.header("사용자 정보 입력")
+    grade = st.selectbox("학년", [1, 2, 3, 4])
+    department = st.selectbox("학부", list(departments.keys()))
+    majors = departments[department]
+    major = st.selectbox("전공", majors)
+    fields = majors_fields[major]
+    field = st.selectbox("희망분야", fields)
 
-# 선택된 학부에 따라 전공 옵션 필터링
-majors = departments[department]
-major = st.sidebar.selectbox("전공", majors)
-
-# 선택된 전공에 따라 희망분야 옵션 필터링
-fields = majors_fields[major]
-field = st.sidebar.selectbox("희망분야", fields)
-
-# 취득한 자격증 선택
-st.sidebar.subheader("취득한 자격증 선택")
-
-# 모든 자격증 목록을 드롭다운으로 표시
-all_certificates = sorted(df['name'].tolist())
-selected_cert = st.sidebar.selectbox("자격증 선택", [""] + all_certificates)
-if selected_cert and st.sidebar.button("추가"):
-    if selected_cert not in st.session_state.acquired_certificates:
-        st.session_state.acquired_certificates.append(selected_cert)
-        st.success(f"'{selected_cert}'가 취득한 자격증 목록에 추가되었습니다.")
-        st.rerun()
-
-# 선택된 자격증을 태그 형태로 표시
-st.sidebar.subheader("취득한 자격증")
-for i, cert in enumerate(st.session_state.acquired_certificates):
-    col1, col2 = st.sidebar.columns([0.9, 0.1])
-    col1.write(cert)
-    if col2.button("x", key=f"remove_{i}", help="제거"):
-        removed_cert = st.session_state.acquired_certificates.pop(i)
-        st.success(f"'{removed_cert}'가 취득한 자격증 목록에서 제거되었습니다.")
-        st.rerun()
+    # 현재 선택된 탭에 따라 다른 사이드바 내용 표시
+    if st.session_state.get('current_tab') in [None, '추천 자격증', '우리 학교 재학생/졸업생이 취득한 자격증']:
+        st.subheader("취득한 자격증 선택")
+        all_certificates = sorted(df['name'].tolist())
+        selected_cert = st.selectbox("자격증 선택", [""] + all_certificates)
+        if selected_cert and st.button("추가"):
+            if selected_cert not in st.session_state.acquired_certificates:
+                st.session_state.acquired_certificates.append(selected_cert)
+                st.success(f"'{selected_cert}'가 취득한 자격증 목록에 추가되었습니다.")
+                st.rerun()
+        
+        st.subheader("취득한 자격증")
+        for i, cert in enumerate(st.session_state.acquired_certificates):
+            col1, col2 = st.columns([0.9, 0.1])
+            col1.write(cert)
+            if col2.button("x", key=f"remove_{i}", help="제거"):
+                removed_cert = st.session_state.acquired_certificates.pop(i)
+                st.success(f"'{removed_cert}'가 취득한 자격증 목록에서 제거되었습니다.")
+                st.rerun()
+    
+    elif st.session_state.get('current_tab') == 'IPP 인턴십 공고':
+        st.subheader("인턴십 검색 옵션")
+        duration_options = ["단기 (1~4개월)", "장기 (6개월~1년)"]
+        selected_duration = st.multiselect("인턴십 기간", options=duration_options, default=duration_options)
+        
+        ipp_data = load_ipp_data()
+        field_options = ipp_data['분야'].unique().tolist()
+        selected_fields = st.multiselect("분야 선택", options=field_options)
+        
+        min_gpa = st.slider("최소 학점", 0.0, 4.5, 0.0, 0.1)
+        
+        if st.button("인턴십 검색"):
+            st.session_state.search_internships = True
+        else:
+            st.session_state.search_internships = False
 
 # 탭 생성
 tab1, tab2, tab3 = st.tabs(["📊 추천 자격증", "👨‍🎓 우리 학교 재학생/졸업생이 취득한 자격증", "🏢 IPP 인턴십 공고"])
@@ -267,54 +278,57 @@ with tab2:
     """)
     
 with tab3:
+    st.session_state.current_tab = 'IPP 인턴십 공고'
     st.header("🏢 IPP 인턴십 공고")
-    ipp_data = load_ipp_data()
     
-    # 학과 필터링
-    ipp_data = ipp_data[ipp_data['관련학과'].apply(lambda x: department in x)]
-    
-    if ipp_data.empty:
-        st.warning(f"{department} 관련 IPP 인턴십 공고가 현재 없습니다.")
+    if st.session_state.get('search_internships', False):
+        ipp_data = load_ipp_data()
+        
+        # 학과 필터링
+        ipp_data = ipp_data[ipp_data['관련학과'].apply(lambda x: department in x)]
+        
+        if ipp_data.empty:
+            st.warning(f"{department} 관련 IPP 인턴십 공고가 현재 없습니다.")
+        else:
+            # 기간 분류
+            ipp_data['기간_정수'] = ipp_data['기간'].apply(parse_duration)
+            ipp_data['기간_분류'] = ipp_data['기간_정수'].apply(classify_duration)
+            
+            # 데이터 필터링
+            filtered_data = ipp_data[ipp_data['기간_분류'].isin(selected_duration)]
+            if selected_fields:
+                filtered_data = filtered_data[filtered_data['분야'].isin(selected_fields)]
+            
+            # GPA 필터링 (예시 - 실제 데이터에 맞게 수정 필요)
+            filtered_data = filtered_data[filtered_data['우대조건'].apply(lambda x: any(f"학점 {min_gpa} 이상" in cond for cond in x))]
+            
+            # 인턴십 공고 표시 함수
+            def display_internships(data, duration_type):
+                st.subheader(f"📅 {duration_type} 인턴십")
+                if not data.empty:
+                    for _, ipp in data.iterrows():
+                        with st.expander(f"{ipp['기업명']} - {ipp['분야']} ({ipp['기간']})"):
+                            st.write(f"**지원자격:** {ipp['지원자격']}")
+                            st.write(f"**마감일:** {ipp['마감일']}")
+                            st.write(f"**관련학과:** {', '.join(ipp['관련학과'])}")
+                            st.write("**우대조건:**")
+                            for condition in ipp['우대조건']:
+                                st.write(f"- {condition}")
+                            if st.button("지원하기", key=f"apply_{duration_type}_{ipp['기업명']}"):
+                                st.success(f"{ipp['기업명']}에 지원서가 제출되었습니다!")
+                else:
+                    st.info(f"현재 조건에 맞는 {duration_type} 인턴십 공고가 없습니다.")
+            
+            # 단기 인턴십 표시
+            if "단기 (1~4개월)" in selected_duration:
+                display_internships(filtered_data[filtered_data['기간_분류'] == "단기 (1~4개월)"], "단기")
+            
+            # 장기 인턴십 표시
+            if "장기 (6개월~1년)" in selected_duration:
+                display_internships(filtered_data[filtered_data['기간_분류'] == "장기 (6개월~1년)"], "장기")
     else:
-        # 기간 분류
-        ipp_data['기간_정수'] = ipp_data['기간'].apply(parse_duration)
-        ipp_data['기간_분류'] = ipp_data['기간_정수'].apply(classify_duration)
-        
-        # 필터링 옵션
-        st.subheader("필터링 옵션")
-        selected_duration = st.multiselect("인턴십 기간", options=["단기 (1~4개월)", "장기 (6개월~1년)"], default=["단기 (1~4개월)", "장기 (6개월~1년)"])
-        selected_fields = st.multiselect("분야 선택", options=ipp_data['분야'].unique())
-        
-        # 데이터 필터링
-        filtered_data = ipp_data[ipp_data['기간_분류'].isin(selected_duration)]
-        if selected_fields:
-            filtered_data = filtered_data[filtered_data['분야'].isin(selected_fields)]
-        
-        # 인턴십 공고 표시 함수
-        def display_internships(data, duration_type):
-            st.subheader(f"📅 {duration_type} 인턴십")
-            if not data.empty:
-                for _, ipp in data.iterrows():
-                    with st.expander(f"{ipp['기업명']} - {ipp['분야']} ({ipp['기간']})"):
-                        st.write(f"**지원자격:** {ipp['지원자격']}")
-                        st.write(f"**마감일:** {ipp['마감일']}")
-                        st.write(f"**관련학과:** {', '.join(ipp['관련학과'])}")
-                        st.write("**우대조건:**")
-                        for condition in ipp['우대조건']:
-                            st.write(f"- {condition}")
-                        if st.button("지원하기", key=f"apply_{duration_type}_{ipp['기업명']}"):
-                            st.success(f"{ipp['기업명']}에 지원서가 제출되었습니다!")
-            else:
-                st.info(f"현재 조건에 맞는 {duration_type} 인턴십 공고가 없습니다.")
-        
-        # 단기 인턴십 표시
-        if "단기 (1~4개월)" in selected_duration:
-            display_internships(filtered_data[filtered_data['기간_분류'] == "단기 (1~4개월)"], "단기")
-        
-        # 장기 인턴십 표시
-        if "장기 (6개월~1년)" in selected_duration:
-            display_internships(filtered_data[filtered_data['기간_분류'] == "장기 (6개월~1년)"], "장기")
-    
+        st.info("좌측 사이드바에서 검색 옵션을 선택하고 '인턴십 검색' 버튼을 클릭하세요.")
+
     st.info("""
     - IPP 인턴십은 학교와 기업이 공동으로 운영하는 장기현장실습 프로그램입니다.
     - 실제 근무 경험을 통해 실무 능력을 향상시킬 수 있는 좋은 기회입니다.
