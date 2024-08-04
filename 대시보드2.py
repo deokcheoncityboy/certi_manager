@@ -109,7 +109,7 @@ def get_alumni_certificates(department, major):
 if 'acquired_certificates' not in st.session_state:
     st.session_state.acquired_certificates = []
     
-# IPP 인턴십 데이터 로드 함수 수정
+# IPP 인턴십 데이터 로드 함수
 def load_ipp_data():
     # 실제 구현에서는 데이터베이스나 API에서 데이터를 가져와야 합니다.
     # 여기서는 예시 데이터를 사용합니다.
@@ -143,6 +143,16 @@ def parse_duration(duration):
         return int(duration.split()[0])
     except (ValueError, AttributeError, IndexError):
         return 0  # 변환할 수 없는 경우 0을 반환
+
+# 인턴십 기간 분류 함수
+def classify_duration(months):
+    if 1 <= months <= 4:
+        return "단기 (1~4개월)"
+    elif 6 <= months <= 12:
+        return "장기 (6개월~1년)"
+    else:
+        return "기타"
+
     
 # Streamlit 앱 설정
 st.set_page_config(layout="wide", page_title="학생 종합 역량 관리 시스템")
