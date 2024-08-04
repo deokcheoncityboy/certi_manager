@@ -108,7 +108,26 @@ def get_alumni_certificates(department, major):
 # 세션 상태 초기화
 if 'acquired_certificates' not in st.session_state:
     st.session_state.acquired_certificates = []
-
+    
+# IPP 인턴십 데이터 로드 함수 수정
+def load_ipp_data():
+    # 실제 구현에서는 데이터베이스나 API에서 데이터를 가져와야 합니다.
+    # 여기서는 예시 데이터를 사용합니다.
+    return pd.DataFrame({
+        "기업명": ["테크놀로지 주식회사", "글로벌 시스템즈", "스마트 솔루션스", "이노베이션 랩스", "퓨처 테크"],
+        "분야": ["소프트웨어 개발", "네트워크 엔지니어링", "데이터 분석", "인공지능", "클라우드 컴퓨팅"],
+        "기간": ["6개월", "4개월", "5개월", "6개월", "3개월"],
+        "지원자격": ["3학년 이상", "2학년 이상", "3학년 이상", "4학년", "2학년 이상"],
+        "마감일": ["2024-09-30", "2024-08-15", "2024-10-31", "2024-09-15", "2024-08-31"],
+        "관련학과": [
+            ["컴퓨터공학부", "전기전자통신공학부"],
+            ["전기전자통신공학부", "컴퓨터공학부"],
+            ["컴퓨터공학부", "산업경영학부"],
+            ["컴퓨터공학부", "전기전자통신공학부"],
+            ["컴퓨터공학부", "메카트로닉스공학부"]
+        ]
+    })
+    
 # Streamlit 앱 설정
 st.set_page_config(layout="wide", page_title="자격증 추천 시스템")
 st.title("🎓 자격증 추천 대시보드")
@@ -149,7 +168,8 @@ for i, cert in enumerate(st.session_state.acquired_certificates):
         st.rerun()
 
 # 탭 생성
-tab1, tab2 = st.tabs(["📊 추천 자격증", "👨‍🎓 우리 학교 재학생/졸업생이 취득한 자격증"])
+tab1, tab2, tab3 = st.tabs(["📊 추천 자격증", "👨‍🎓 우리 학교 재학생/졸업생이 취득한 자격증", "🏢 IPP 인턴십 공고"])
+
 
 with tab1:
     if st.sidebar.button("자격증 추천 받기"):
@@ -219,7 +239,47 @@ with tab2:
     - 실제 취득 현황은 변동될 수 있으며, 개인의 관심사와 진로 계획에 따라 선택하는 자격증이 다를 수 있습니다.
     - 자세한 정보는 학과 사무실이나 취업지원센터에 문의해주세요.
     """)
-
+    
+with tab3:
+    st.header("🏢 IPP 인턴십 공고")
+    ipp_data = load_ipp_data()
+    
+    # 학과 필터링
+    ipp_data = ipp_data[ipp_data['관련학과'].apply(lambda x: department in x)]
+    
+    if ipp_data.empty:
+        st.warning(f"{department} 관련 IPP 인턴십 공고가 현재 없습니다.")
+    else:
+        # 추가 필터링 옵션
+        st.subheader("추가 필터링")
+        selected_fields = st.multiselect("분야 선택", options=ipp_data['분야'].unique())
+        min_duration = st.slider("최소 기간 (개월)", min_value=1, max_value=6, value=1)
+        
+        # 데이터 필터링
+        if selected_fields:
+            ipp_data = ipp_data[ipp_data['분야'].isin(selected_fields)]
+        ipp_data = ipp_data[ipp_data['기간'].apply(lambda x: int(x.split()[0]) >= min_duration)]
+        
+        # 필터링된 데이터 표시
+        if not ipp_data.empty:
+            for _, ipp in ipp_data.iterrows():
+                with st.expander(f"{ipp['기업명']} - {ipp['분야']}"):
+                    st.write(f"**기간:** {ipp['기간']}")
+                    st.write(f"**지원자격:** {ipp['지원자격']}")
+                    st.write(f"**마감일:** {ipp['마감일']}")
+                    st.write(f"**관련학과:** {', '.join(ipp['관련학과'])}")
+                    if st.button("지원하기", key=f"apply_{ipp['기업명']}"):
+                        st.success(f"{ipp['기업명']}에 지원서가 제출되었습니다!")
+        else:
+            st.warning("선택한 조건에 맞는 IPP 인턴십 공고가 없습니다.")
+    
+    st.info("""
+    - IPP 인턴십은 학교와 기업이 공동으로 운영하는 장기현장실습 프로그램입니다.
+    - 실제 근무 경험을 통해 실무 능력을 향상시킬 수 있는 좋은 기회입니다.
+    - 지원 전 반드시 학과사무실이나 취업지원센터에 문의하여 학점 인정 등의 세부사항을 확인하세요.
+    - 기업별로 세부 요구사항이 다를 수 있으니, 지원 전 꼼꼼히 확인하시기 바랍니다.
+    """)
+    
 # 추가 정보 섹션
 st.header("추가 정보")
 st.info("""
