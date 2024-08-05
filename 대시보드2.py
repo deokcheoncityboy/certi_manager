@@ -257,6 +257,17 @@ with tab2:
 def get_all_majors_in_department(department):
     return departments.get(department, [])
 
+# (이전 코드는 그대로 유지)
+
+# 학부 또는 전공에 따른 희망분야를 반환하는 함수
+def get_fields_for_department_or_major(department, major):
+    if major != "전체":
+        return ["전체"] + majors_fields.get(major, [])
+    elif department != "전체":
+        return ["전체"] + list(set([field for major in departments[department] for field in majors_fields.get(major, [])]))
+    else:
+        return ["전체"] + list(set([field for fields in majors_fields.values() for field in fields]))
+
 # 탭 3: IPP 인턴십 공고
 with tab3:
     st.header("🏢 IPP 인턴십 공고")
@@ -272,8 +283,8 @@ with tab3:
         else:
             selected_major = "전체"
         
-        all_fields = list(set([field for major_fields in majors_fields.values() for field in major_fields]))
-        fields = ["전체"] + all_fields
+        # 희망분야 옵션을 동적으로 업데이트
+        fields = get_fields_for_department_or_major(selected_department, selected_major)
         selected_field = st.selectbox("희망분야", fields, key="field_ipp")
         
         duration_options = ["전체", "단기 (1~4개월)", "장기 (6개월~1년)"]
