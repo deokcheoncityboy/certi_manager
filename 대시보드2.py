@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import json
+import re
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.metrics.pairwise import cosine_similarity
 from collections import Counter
@@ -15,15 +16,9 @@ def load_data(file_path):
 certificates_data = load_data("dashboard.jsonl")
 ipp_data = load_data("ipp.jsonl")
 
-# 데이터프레임 생성
+# 데이터프레임 생성 및 전처리
 df = pd.DataFrame(certificates_data)
 ipp_df = pd.DataFrame(ipp_data)
-
-# IPP 데이터 전처리
-ipp_df['관련학과'] = ipp_df['관련학과'].apply(lambda x: x if isinstance(x, list) else json.loads(x))
-ipp_df['우대조건'] = ipp_df['우대조건'].apply(lambda x: x if isinstance(x, list) else json.loads(x))
-
-# 자격증 데이터 전처리
 mlb = MultiLabelBinarizer()
 
 # 모든 관련 필드를 함께 인코딩
@@ -37,7 +32,6 @@ features = pd.concat([encoded_fields,
                       pd.DataFrame(df['career_level'].tolist()).max(axis=1),
                       df['popularity']], 
                       axis=1)
-
 
 # 학부, 전공, 희망분야 관계 정의
 departments = {
@@ -114,25 +108,32 @@ def get_alumni_certificates(department, major):
     ]
     return pd.DataFrame(example_data)
 
-# 기간을 정수로 변환하는 함수
-def parse_duration(duration):
+# 인턴십 기간을 분류하는 함수
+def classify_duration(duration):
     try:
-        return int(duration.split()[0])
-    except (ValueError, AttributeError, IndexError):
-        return 0  # 변환할 수 없는 경우 0을 반환
+        # 숫자만 추출
+        months = int(re.findall(r'\d+', duration)[0])
+        if 1 <= months <= 4:
+            return "단기 (1~4개월)"
+        elif 5 <= months <= 12:
+            return "장기 (6개월~1년)"
+        else:
+            return "기타"
+    except (ValueError, IndexError):
+        return "기타"  # 형식이 맞지 않거나 숫자를 추출할 수 없는 경우
 
-# 인턴십 기간 분류 함수
-def classify_duration(months):
-    if 1 <= months <= 4:
-        return "단기 (1~4개월)"
-    elif 6 <= months <= 12:
-        return "장기 (6개월~1년)"
+# 학부 또는 전공에 따른 희망분야를 반환하는 함수
+def get_fields_for_department_or_major(department, major):
+    if major != "전체":
+        return ["전체"] + majors_fields.get(major, [])
+    elif department != "전체":
+        return ["전체"] + list(set([field for major in departments[department] for field in majors_fields.get(major, [])]))
     else:
-        return "기타"
+        return ["전체"] + list(set([field for fields in majors_fields.values() for field in fields]))
 
-# IPP 데이터에 기간 정보 추가
-ipp_df['기간_정수'] = ipp_df['기간'].apply(parse_duration)
-ipp_df['기간_분류'] = ipp_df['기간_정수'].apply(classify_duration)
+# 학부에 속한 모든 전공을 반환하는 함수
+def get_all_majors_in_department(department):
+    return departments.get(department, [])
 
 # Streamlit 앱 설정
 st.set_page_config(layout="wide", page_title="학생 종합 역량 관리 시스템")
@@ -141,21 +142,6 @@ st.title("🎓 학생 종합 역량 관리 시스템")
 # 세션 상태 초기화
 if 'acquired_certificates' not in st.session_state:
     st.session_state.acquired_certificates = []
-if 'department' not in st.session_state:
-    st.session_state.department = list(departments.keys())[0]
-if 'major' not in st.session_state:
-    st.session_state.major = departments[st.session_state.department][0]
-if 'field' not in st.session_state:
-    st.session_state.field = majors_fields[st.session_state.major][0]
-
-# 자격증 선택 함수
-def select_certificates(key):
-    all_certificates = sorted(df['name'].tolist())
-    selected_certs = st.multiselect("취득한 자격증", options=all_certificates, default=st.session_state.acquired_certificates, key=key)
-    
-    if selected_certs != st.session_state.acquired_certificates:
-        st.session_state.acquired_certificates = selected_certs
-        st.rerun()
 
 # 탭 생성
 tab1, tab2, tab3 = st.tabs(["📊 추천 자격증", "👨‍🎓 우리 학교 재학생/졸업생이 취득한 자격증", "🏢 IPP 인턴십 공고"])
@@ -167,22 +153,36 @@ with tab1:
     col1, col2 = st.columns(2)
     with col1:
         grade = st.selectbox("학년", [1, 2, 3, 4], key="grade_cert")
-        st.session_state.department = st.selectbox("학부", list(departments.keys()), key="dept_cert")
-        majors = departments[st.session_state.department]
-        st.session_state.major = st.selectbox("전공", majors, key="major_cert")
-        fields = majors_fields[st.session_state.major]
-        st.session_state.field = st.selectbox("희망분야", fields, key="field_cert")
+        department = st.selectbox("학부", list(departments.keys()), key="dept_cert")
+        majors = departments[department]
+        major = st.selectbox("전공", majors, key="major_cert")
+        fields = majors_fields[major]
+        field = st.selectbox("희망분야", fields, key="field_cert")
 
     with col2:
         st.subheader("취득한 자격증")
-        select_certificates("cert_tab")
+        all_certificates = sorted(df['name'].tolist())
+        selected_cert = st.selectbox("자격증 선택", [""] + all_certificates, key="select_cert")
+        if selected_cert and st.button("추가", key="add_cert"):
+            if selected_cert not in st.session_state.acquired_certificates:
+                st.session_state.acquired_certificates.append(selected_cert)
+                st.success(f"'{selected_cert}'가 취득한 자격증 목록에 추가되었습니다.")
+                st.rerun()
+        
+        for i, cert in enumerate(st.session_state.acquired_certificates):
+            col1, col2 = st.columns([0.9, 0.1])
+            col1.write(cert)
+            if col2.button("x", key=f"remove_{i}", help="제거"):
+                removed_cert = st.session_state.acquired_certificates.pop(i)
+                st.success(f"'{removed_cert}'가 취득한 자격증 목록에서 제거되었습니다.")
+                st.rerun()
 
-    recommendations = recommend_certificates(grade, st.session_state.department, st.session_state.major, st.session_state.field, st.session_state.acquired_certificates)
+    recommendations = recommend_certificates(grade, department, major, field, st.session_state.acquired_certificates)
     
     if recommendations.empty:
         st.warning("선택한 조건에 맞는 추천 자격증이 없습니다.")
     else:
-        st.subheader(f"📋 {grade}학년 {st.session_state.department} {st.session_state.major} {st.session_state.field} 분야 추천 자격증")
+        st.subheader(f"📋 {grade}학년 {department} {major} {field} 분야 추천 자격증")
         
         for i, (_, cert) in enumerate(recommendations.iterrows()):
             with st.expander(f"{cert['name']} - {cert['type']} | 난이도: {'🌟' * int(cert['difficulty'])} | 인기도: {'🔥' * int(cert['popularity'])} | 졸업요건: {cert['graduation_requirement']}"):
@@ -222,65 +222,35 @@ with tab2:
         majors = departments[department]
         major = st.selectbox("전공", majors, key="major_alumni")
 
-    if st.button("통계 보기", key="view_alumni_stats"):
-        alumni_certs = get_alumni_certificates(department, major)
-        
-        # Plotly를 사용한 가로 막대 차트
-        fig = go.Figure(go.Bar(
-            x=alumni_certs['count'],
-            y=alumni_certs['name'],
-            orientation='h',
-            marker_color='skyblue',
-            marker_line_color='rgb(8,48,107)',
-            marker_line_width=1.5,
-            opacity=0.6
-        ))
-        fig.update_layout(
-            title='재학생/졸업생 자격증 취득 현황',
-            xaxis_title='취득 인원',
-            yaxis_title='자격증명',
-            height=400,
-            width=700
-        )
-        st.plotly_chart(fig)
-        
-        # 테이블로 상세 정보 표시
-        st.table(alumni_certs)
-        
-        st.info("""
-        - 이 데이터는 최근 5년간의 취득 현황을 바탕으로 합니다.
-        - 실제 취득 현황은 변동될 수 있으며, 개인의 관심사와 진로 계획에 따라 선택하는 자격증이 다를 수 있습니다.
-        - 자세한 정보는 학과 사무실이나 취업지원센터에 문의해주세요.
-        """)
-
-# 학부에 속한 모든 전공을 반환하는 함수
-def get_all_majors_in_department(department):
-    return departments.get(department, [])
-
-# (이전 코드는 그대로 유지)
-
-# 학부 또는 전공에 따른 희망분야를 반환하는 함수
-def get_fields_for_department_or_major(department, major):
-    if major != "전체":
-        return ["전체"] + majors_fields.get(major, [])
-    elif department != "전체":
-        return ["전체"] + list(set([field for major in departments[department] for field in majors_fields.get(major, [])]))
-    else:
-        return ["전체"] + list(set([field for fields in majors_fields.values() for field in fields]))
-
-# 인턴십 기간을 분류하는 함수 수정
-def classify_duration(duration):
-    try:
-        # 숫자만 추출
-        months = int(re.findall(r'\d+', duration)[0])
-        if 1 <= months <= 4:
-            return "단기 (1~4개월)"
-        elif 5 <= months <= 12:
-            return "장기 (6개월~1년)"
-        else:
-            return "기타"
-    except (ValueError, IndexError):
-        return "기타"  # 형식이 맞지 않거나 숫자를 추출할 수 없는 경우
+    alumni_certs = get_alumni_certificates(department, major)
+    
+    # Plotly를 사용한 가로 막대 차트
+    fig = go.Figure(go.Bar(
+        x=alumni_certs['count'],
+        y=alumni_certs['name'],
+        orientation='h',
+        marker_color='skyblue',
+        marker_line_color='rgb(8,48,107)',
+        marker_line_width=1.5,
+        opacity=0.6
+    ))
+    fig.update_layout(
+        title='재학생/졸업생 자격증 취득 현황',
+        xaxis_title='취득 인원',
+        yaxis_title='자격증명',
+        height=400,
+        width=700
+    )
+    st.plotly_chart(fig)
+    
+    # 테이블로 상세 정보 표시
+    st.table(alumni_certs)
+    
+    st.info("""
+    - 이 데이터는 최근 5년간의 취득 현황을 바탕으로 합니다.
+    - 실제 취득 현황은 변동될 수 있으며, 개인의 관심사와 진로 계획에 따라 선택하는 자격증이 다를 수 있습니다.
+    - 자세한 정보는 학과 사무실이나 취업지원센터에 문의해주세요.
+    """)
 
 # 탭 3: IPP 인턴십 공고
 with tab3:
@@ -306,7 +276,10 @@ with tab3:
 
     with col2:
         # 취득 자격증 선택
-        select_certificates("ipp_tab")
+        st.subheader("취득한 자격증")
+        all_certificates = sorted(df['name'].tolist())
+        selected_cert = st.multiselect("자격증 선택", all_certificates, default=st.session_state.acquired_certificates, key="select_cert_ipp")
+        st.session_state.acquired_certificates = selected_cert
         
         # 어학성적 선택
         language_test_options = ["TOEIC", "TOEFL", "IELTS", "TEPS", "OPIc"]
@@ -367,6 +340,7 @@ with tab3:
                 
                 if st.button("지원하기", key=f"apply_ipp_{ipp['기업명']}_{i}"):
                     st.success(f"{ipp['기업명']}에 지원서가 제출되었습니다!")
+
     st.info("""
     - IPP 인턴십은 학교와 기업이 공동으로 운영하는 장기현장실습 프로그램입니다.
     - 실제 근무 경험을 통해 실무 능력을 향상시킬 수 있는 좋은 기회입니다.
