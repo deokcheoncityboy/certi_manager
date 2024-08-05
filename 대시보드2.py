@@ -105,10 +105,6 @@ def get_alumni_certificates(department, major):
     ]
     return pd.DataFrame(example_data)
 
-# 세션 상태 초기화
-if 'acquired_certificates' not in st.session_state:
-    st.session_state.acquired_certificates = []
-    
 # IPP 인턴십 데이터 로드 함수
 def load_ipp_data():
     # 실제 구현에서는 데이터베이스나 API에서 데이터를 가져와야 합니다.
@@ -153,46 +149,40 @@ def classify_duration(months):
     else:
         return "기타"
 
-    
 # Streamlit 앱 설정
 st.set_page_config(layout="wide", page_title="학생 종합 역량 관리 시스템")
 st.title("🎓 학생 종합 역량 관리 시스템")
 
+# 세션 상태 초기화
+if 'acquired_certificates' not in st.session_state:
+    st.session_state.acquired_certificates = []
+
 # 탭 생성
 tab1, tab2, tab3 = st.tabs(["📊 추천 자격증", "👨‍🎓 우리 학교 재학생/졸업생이 취득한 자격증", "🏢 IPP 인턴십 공고"])
 
-# 현재 선택된 탭 추적
-if 'current_tab' not in st.session_state:
-    st.session_state.current_tab = "추천 자격증"
+# 탭 1: 추천 자격증
+with tab1:
+    st.header("📊 자격증 추천")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        grade = st.selectbox("학년", [1, 2, 3, 4], key="grade_cert")
+        department = st.selectbox("학부", list(departments.keys()), key="dept_cert")
+        majors = departments[department]
+        major = st.selectbox("전공", majors, key="major_cert")
+        fields = majors_fields[major]
+        field = st.selectbox("희망분야", fields, key="field_cert")
 
-if tab1:
-    st.session_state.current_tab = "추천 자격증"
-elif tab2:
-    st.session_state.current_tab = "우리 학교 재학생/졸업생이 취득한 자격증"
-elif tab3:
-    st.session_state.current_tab = "IPP 인턴십 공고"
-
-# 탭별 사이드바 구성
-with st.sidebar:
-    st.header("사용자 정보 입력")
-    grade = st.selectbox("학년", [1, 2, 3, 4])
-    department = st.selectbox("학부", list(departments.keys()))
-    majors = departments[department]
-    major = st.selectbox("전공", majors)
-    fields = majors_fields[major]
-    field = st.selectbox("희망분야", fields)
-
-    if st.session_state.current_tab in ["추천 자격증", "우리 학교 재학생/졸업생이 취득한 자격증"]:
-        st.subheader("취득한 자격증 선택")
+    with col2:
+        st.subheader("취득한 자격증")
         all_certificates = sorted(df['name'].tolist())
-        selected_cert = st.selectbox("자격증 선택", [""] + all_certificates)
+        selected_cert = st.selectbox("자격증 선택", [""] + all_certificates, key="select_cert")
         if selected_cert and st.button("추가", key="add_cert"):
             if selected_cert not in st.session_state.acquired_certificates:
                 st.session_state.acquired_certificates.append(selected_cert)
                 st.success(f"'{selected_cert}'가 취득한 자격증 목록에 추가되었습니다.")
                 st.rerun()
         
-        st.subheader("취득한 자격증")
         for i, cert in enumerate(st.session_state.acquired_certificates):
             col1, col2 = st.columns([0.9, 0.1])
             col1.write(cert)
@@ -200,36 +190,14 @@ with st.sidebar:
                 removed_cert = st.session_state.acquired_certificates.pop(i)
                 st.success(f"'{removed_cert}'가 취득한 자격증 목록에서 제거되었습니다.")
                 st.rerun()
-        
-        if st.session_state.current_tab == "추천 자격증":
-            if st.button("자격증 추천 받기", key="recommend_cert_button_sidebar"):
-                st.session_state.recommend_certificates = True
-    
-    elif st.session_state.current_tab == "IPP 인턴십 공고":
-        st.subheader("인턴십 검색 옵션")
-        duration_options = ["단기 (1~4개월)", "장기 (6개월~1년)"]
-        selected_duration = st.multiselect("인턴십 기간", options=duration_options, default=duration_options)
-        
-        ipp_data = load_ipp_data()
-        field_options = ipp_data['분야'].unique().tolist()
-        selected_fields = st.multiselect("분야 선택", options=field_options)
-        
-        min_gpa = st.slider("최소 학점", 0.0, 4.5, 0.0, 0.1)
-        
-        if st.button("IPP 검색", key="search_internship_button"):
-            st.session_state.search_internships = True
-        
-        if st.button("우대조건", key="preference_conditions_button"):
-            st.session_state.show_preference_conditions = True
-# 탭 내용
-with tab1:
-    if st.session_state.get('recommend_certificates', False):
+
+    if st.button("자격증 추천 받기", key="recommend_cert_button"):
         recommendations = recommend_certificates(grade, department, major, field, st.session_state.acquired_certificates)
         
         if recommendations.empty:
             st.warning("선택한 조건에 맞는 추천 자격증이 없습니다.")
         else:
-            st.header(f"📋 {grade}학년 {department} {major} {field} 분야 추천 자격증")
+            st.subheader(f"📋 {grade}학년 {department} {major} {field} 분야 추천 자격증")
             
             for i, (_, cert) in enumerate(recommendations.iterrows()):
                 with st.expander(f"{cert['name']} - {cert['type']} | 난이도: {'🌟' * int(cert['difficulty'])} | 인기도: {'🔥' * int(cert['popularity'])} | 졸업요건: {cert['graduation_requirement']}"):
@@ -258,42 +226,77 @@ with tab1:
             comparison_table['difficulty'] = comparison_table['difficulty'].apply(lambda x: '🌟' * int(x))
             comparison_table['popularity'] = comparison_table['popularity'].apply(lambda x: '🔥' * int(x))
             st.table(comparison_table.set_index('name'))
-    else:
-        st.info("좌측 사이드바에서 '자격증 추천 받기' 버튼을 클릭하세요.")
 
+# 탭 2: 우리 학교 재학생/졸업생이 취득한 자격증
 with tab2:
-    st.header(f"👨‍🎓 {department} {major} 재학생/졸업생 취득 자격증")
-    alumni_certs = get_alumni_certificates(department, major)
+    st.header("👨‍🎓 우리 학교 재학생/졸업생이 취득한 자격증")
     
-    # Plotly를 사용한 가로 막대 차트
-    fig = go.Figure(go.Bar(
-        x=alumni_certs['count'],
-        y=alumni_certs['name'],
-        orientation='h',
-        marker_color='skyblue',
-        marker_line_color='rgb(8,48,107)',
-        marker_line_width=1.5,
-        opacity=0.6
-    ))
-    fig.update_layout(
-        title='재학생/졸업생 자격증 취득 현황',
-        xaxis_title='취득 인원',
-        yaxis_title='자격증명',
-        height=400,
-        width=700
-    )
-    st.plotly_chart(fig)
-    
-    # 테이블로 상세 정보 표시
-    st.table(alumni_certs)
-    
-    st.info("""
-    - 이 데이터는 최근 5년간의 취득 현황을 바탕으로 합니다.
-    - 실제 취득 현황은 변동될 수 있으며, 개인의 관심사와 진로 계획에 따라 선택하는 자격증이 다를 수 있습니다.
-    - 자세한 정보는 학과 사무실이나 취업지원센터에 문의해주세요.
-    """)
-    
+    col1, col2 = st.columns(2)
+    with col1:
+        department = st.selectbox("학부", list(departments.keys()), key="dept_alumni")
+        majors = departments[department]
+        major = st.selectbox("전공", majors, key="major_alumni")
+
+    if st.button("통계 보기", key="view_alumni_stats"):
+        alumni_certs = get_alumni_certificates(department, major)
+        
+        # Plotly를 사용한 가로 막대 차트
+        fig = go.Figure(go.Bar(
+            x=alumni_certs['count'],
+            y=alumni_certs['name'],
+            orientation='h',
+            marker_color='skyblue',
+            marker_line_color='rgb(8,48,107)',
+            marker_line_width=1.5,
+            opacity=0.6
+        ))
+        fig.update_layout(
+            title='재학생/졸업생 자격증 취득 현황',
+            xaxis_title='취득 인원',
+            yaxis_title='자격증명',
+            height=400,
+            width=700
+        )
+        st.plotly_chart(fig)
+        
+        # 테이블로 상세 정보 표시
+        st.table(alumni_certs)
+        
+        st.info("""
+        - 이 데이터는 최근 5년간의 취득 현황을 바탕으로 합니다.
+        - 실제 취득 현황은 변동될 수 있으며, 개인의 관심사와 진로 계획에 따라 선택하는 자격증이 다를 수 있습니다.
+        - 자세한 정보는 학과 사무실이나 취업지원센터에 문의해주세요.
+        """)
+
+# 탭 3: IPP 인턴십 공고
 with tab3:
+    st.header("🏢 IPP 인턴십 공고")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        department = st.selectbox("학부", list(departments.keys()), key="dept_ipp")
+        majors = departments[department]
+        major = st.selectbox("전공", majors, key="major_ipp")
+        
+        duration_options = ["단기 (1~4개월)", "장기 (6개월~1년)"]
+        selected_duration = st.multiselect("인턴십 기간", options=duration_options, default=duration_options)
+
+    with col2:
+        ipp_data = load_ipp_data()
+        field_options = ipp_data['분야'].unique().tolist()
+        selected_fields = st.multiselect("분야 선택", options=field_options)
+        
+        min_gpa = st.slider("최소 학점", 0.0, 4.5, 0.0, 0.1)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("IPP 검색", key="search_internship_button"):
+            st.session_state.search_internships = True
+    
+    with col2:
+        if st.button("우대조건 정보", key="preference_conditions_button"):
+            st.session_state.show_preference_conditions = True
+
     if st.session_state.get('search_internships', False):
         ipp_data = load_ipp_data()
         
@@ -330,8 +333,6 @@ with tab3:
                             st.success(f"{ipp['기업명']}에 지원서가 제출되었습니다!")
             else:
                 st.info("현재 조건에 맞는 IPP 인턴십 공고가 없습니다.")
-    else:
-        st.info("좌측 사이드바에서 검색 옵션을 선택하고 'IPP 검색' 버튼을 클릭하세요.")
 
     if st.session_state.get('show_preference_conditions', False):
         st.subheader("🌟 우대조건 정보")
@@ -355,7 +356,7 @@ with tab3:
     - 기업별로 세부 요구사항이 다를 수 있으니, 지원 전 꼼꼼히 확인하시기 바랍니다.
     - 우대조건을 충족하면 지원 시 가산점을 받을 수 있습니다. 하지만 필수 조건은 아니니 자신감을 가지고 도전해보세요!
     """)
-    
+
 # 추가 정보 섹션
 st.header("추가 정보")
 st.info("""
