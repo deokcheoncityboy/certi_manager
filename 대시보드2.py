@@ -156,10 +156,24 @@ st.title("🎓 학생 종합 역량 관리 시스템")
 # 세션 상태 초기화
 if 'acquired_certificates' not in st.session_state:
     st.session_state.acquired_certificates = []
+if 'department' not in st.session_state:
+    st.session_state.department = list(departments.keys())[0]
+if 'major' not in st.session_state:
+    st.session_state.major = departments[st.session_state.department][0]
+if 'field' not in st.session_state:
+    st.session_state.field = majors_fields[st.session_state.major][0]
 
 # 탭 생성
 tab1, tab2, tab3 = st.tabs(["📊 추천 자격증", "👨‍🎓 우리 학교 재학생/졸업생이 취득한 자격증", "🏢 IPP 인턴십 공고"])
 
+# 자격증 선택 함수
+def select_certificates(key):
+    all_certificates = sorted(df['name'].tolist())
+    selected_certs = st.multiselect("취득한 자격증", options=all_certificates, default=st.session_state.acquired_certificates, key=key)
+    
+    if selected_certs != st.session_state.acquired_certificates:
+        st.session_state.acquired_certificates = selected_certs
+        st.rerun()
 # 탭 1: 추천 자격증
 with tab1:
     st.header("📊 자격증 추천")
@@ -167,65 +181,51 @@ with tab1:
     col1, col2 = st.columns(2)
     with col1:
         grade = st.selectbox("학년", [1, 2, 3, 4], key="grade_cert")
-        department = st.selectbox("학부", list(departments.keys()), key="dept_cert")
-        majors = departments[department]
-        major = st.selectbox("전공", majors, key="major_cert")
-        fields = majors_fields[major]
-        field = st.selectbox("희망분야", fields, key="field_cert")
+        st.session_state.department = st.selectbox("학부", list(departments.keys()), key="dept_cert")
+        majors = departments[st.session_state.department]
+        st.session_state.major = st.selectbox("전공", majors, key="major_cert")
+        fields = majors_fields[st.session_state.major]
+        st.session_state.field = st.selectbox("희망분야", fields, key="field_cert")
 
     with col2:
         st.subheader("취득한 자격증")
-        all_certificates = sorted(df['name'].tolist())
-        selected_cert = st.selectbox("자격증 선택", [""] + all_certificates, key="select_cert")
-        if selected_cert and st.button("추가", key="add_cert"):
-            if selected_cert not in st.session_state.acquired_certificates:
-                st.session_state.acquired_certificates.append(selected_cert)
-                st.success(f"'{selected_cert}'가 취득한 자격증 목록에 추가되었습니다.")
-                st.rerun()
-        
-        for i, cert in enumerate(st.session_state.acquired_certificates):
-            col1, col2 = st.columns([0.9, 0.1])
-            col1.write(cert)
-            if col2.button("x", key=f"remove_{i}", help="제거"):
-                removed_cert = st.session_state.acquired_certificates.pop(i)
-                st.success(f"'{removed_cert}'가 취득한 자격증 목록에서 제거되었습니다.")
-                st.rerun()
+        select_certificates("cert_tab")
 
-    if st.button("자격증 추천 받기", key="recommend_cert_button"):
-        recommendations = recommend_certificates(grade, department, major, field, st.session_state.acquired_certificates)
+    recommendations = recommend_certificates(grade, st.session_state.department, st.session_state.major, st.session_state.field, st.session_state.acquired_certificates)
+    
+    if recommendations.empty:
+        st.warning("선택한 조건에 맞는 추천 자격증이 없습니다.")
+    else:
+        st.subheader(f"📋 {grade}학년 {st.session_state.department} {st.session_state.major} {st.session_state.field} 분야 추천 자격증")
         
-        if recommendations.empty:
-            st.warning("선택한 조건에 맞는 추천 자격증이 없습니다.")
-        else:
-            st.subheader(f"📋 {grade}학년 {department} {major} {field} 분야 추천 자격증")
-            
-            for i, (_, cert) in enumerate(recommendations.iterrows()):
-                with st.expander(f"{cert['name']} - {cert['type']} | 난이도: {'🌟' * int(cert['difficulty'])} | 인기도: {'🔥' * int(cert['popularity'])} | 졸업요건: {cert['graduation_requirement']}"):
-                    st.write(f"**관련 분야:** {', '.join(cert['related_fields'])}")
-                    st.write(f"**시험 일정:** {cert['schedule']}")
-                    st.write(f"**응시료:** {cert['fee']}")
-                    st.write(f"**설명:** {cert['description']}")
-                    
-                    # 코멘트 섹션
-                    st.subheader("💬 코멘트")
-                    if 'comments' not in st.session_state:
-                        st.session_state.comments = {c['name']: [] for c in certificates_data}
-                    for comment in st.session_state.comments[cert['name']]:
-                        st.text(comment)
-                    
-                    # 새 코멘트 입력
-                    new_comment = st.text_input(f"'{cert['name']}'에 대한 코멘트를 남겨주세요:", key=f"comment_input_{cert['name']}_{i}")
-                    if st.button("코멘트 추가", key=f"add_comment_{cert['name']}_{i}"):
-                        st.session_state.comments[cert['name']].append(new_comment)
-                        st.success("코멘트가 추가되었습니다.")
-                        st.rerun()
+        for i, (_, cert) in enumerate(recommendations.iterrows()):
+            with st.expander(f"{cert['name']} - {cert['type']} | 난이도: {'🌟' * int(cert['difficulty'])} | 인기도: {'🔥' * int(cert['popularity'])} | 졸업요건: {cert['graduation_requirement']}"):
+                st.write(f"**관련 분야:** {', '.join(cert['related_fields'])}")
+                st.write(f"**시험 일정:** {cert['schedule']}")
+                st.write(f"**응시료:** {cert['fee']}")
+                st.write(f"**설명:** {cert['description']}")
+                
+                # 코멘트 섹션
+                st.subheader("💬 코멘트")
+                if 'comments' not in st.session_state:
+                    st.session_state.comments = {c['name']: [] for c in certificates_data}
+                for comment in st.session_state.comments[cert['name']]:
+                    st.text(comment)
+                
+                # 새 코멘트 입력
+                new_comment = st.text_input(f"'{cert['name']}'에 대한 코멘트를 남겨주세요:", key=f"comment_input_{cert['name']}_{i}")
+                if st.button("코멘트 추가", key=f"add_comment_{cert['name']}_{i}"):
+                    st.session_state.comments[cert['name']].append(new_comment)
+                    st.success("코멘트가 추가되었습니다.")
+                    st.rerun()
 
-            # 비교 테이블
-            st.subheader("자격증 간단 비교")
-            comparison_table = recommendations[['name', 'type', 'difficulty', 'popularity', 'graduation_requirement']].copy()
-            comparison_table['difficulty'] = comparison_table['difficulty'].apply(lambda x: '🌟' * int(x))
-            comparison_table['popularity'] = comparison_table['popularity'].apply(lambda x: '🔥' * int(x))
-            st.table(comparison_table.set_index('name'))
+        # 비교 테이블
+        st.subheader("자격증 간단 비교")
+        comparison_table = recommendations[['name', 'type', 'difficulty', 'popularity', 'graduation_requirement']].copy()
+        comparison_table['difficulty'] = comparison_table['difficulty'].apply(lambda x: '🌟' * int(x))
+        comparison_table['popularity'] = comparison_table['popularity'].apply(lambda x: '🔥' * int(x))
+        st.table(comparison_table.set_index('name'))
+
 
 # 탭 2: 우리 학교 재학생/졸업생이 취득한 자격증
 with tab2:
@@ -274,21 +274,16 @@ with tab3:
     
     col1, col2 = st.columns(2)
     with col1:
-        department = st.selectbox("학부", list(departments.keys()), key="dept_ipp")
-        majors = departments[department]
-        major = st.selectbox("전공", majors, key="major_ipp")
+        st.selectbox("학부", list(departments.keys()), key="dept_ipp", disabled=True, value=st.session_state.department)
+        st.selectbox("전공", departments[st.session_state.department], key="major_ipp", disabled=True, value=st.session_state.major)
+        st.selectbox("희망분야", majors_fields[st.session_state.major], key="field_ipp", disabled=True, value=st.session_state.field)
         
         duration_options = ["단기 (1~4개월)", "장기 (6개월~1년)"]
         selected_duration = st.multiselect("인턴십 기간", options=duration_options, default=duration_options)
 
     with col2:
-        ipp_data = load_ipp_data()
-        field_options = ipp_data['분야'].unique().tolist()
-        selected_fields = st.multiselect("분야 선택", options=field_options)
-        
         # 취득 자격증 선택
-        all_certificates = sorted(df['name'].tolist())
-        acquired_certs = st.multiselect("취득한 자격증", options=all_certificates, key="acquired_certs_ipp")
+        select_certificates("ipp_tab")
         
         # 어학성적 선택
         language_test_options = ["TOEIC", "TOEFL", "IELTS", "TEPS", "OPIc"]
@@ -298,52 +293,47 @@ with tab3:
         # 학점 입력
         gpa = st.number_input("학점 (0.0 ~ 4.5)", min_value=0.0, max_value=4.5, step=0.1, format="%.1f")
 
-    if st.button("IPP 검색", key="search_internship_button"):
-        st.session_state.search_internships = True
-
-    if st.session_state.get('search_internships', False):
-        ipp_data = load_ipp_data()
+    ipp_data = load_ipp_data()
+    
+    # 학과 및 분야 필터링
+    ipp_data = ipp_data[ipp_data['관련학과'].apply(lambda x: st.session_state.department in x)]
+    ipp_data = ipp_data[ipp_data['분야'] == st.session_state.field]
+    
+    if ipp_data.empty:
+        st.warning(f"{st.session_state.department} {st.session_state.field} 관련 IPP 인턴십 공고가 현재 없습니다.")
+    else:
+        # 기간 분류
+        ipp_data['기간_정수'] = ipp_data['기간'].apply(parse_duration)
+        ipp_data['기간_분류'] = ipp_data['기간_정수'].apply(classify_duration)
         
-        # 학과 필터링
-        ipp_data = ipp_data[ipp_data['관련학과'].apply(lambda x: department in x)]
+        # 데이터 필터링
+        filtered_data = ipp_data[ipp_data['기간_분류'].isin(selected_duration)]
         
-        if ipp_data.empty:
-            st.warning(f"{department} 관련 IPP 인턴십 공고가 현재 없습니다.")
+        # 인턴십 공고 표시
+        st.subheader("📅 IPP 인턴십 공고")
+        if not filtered_data.empty:
+            for i, (_, ipp) in enumerate(filtered_data.iterrows()):
+                with st.expander(f"{ipp['기업명']} - {ipp['분야']} ({ipp['기간']})"):
+                    st.write(f"**지원자격:** {ipp['지원자격']}")
+                    st.write(f"**마감일:** {ipp['마감일']}")
+                    st.write(f"**관련학과:** {', '.join(ipp['관련학과'])}")
+                    st.write("**우대조건:**")
+                    for condition in ipp['우대조건']:
+                        st.write(f"- {condition}")
+                    
+                    # 지원자의 조건과 우대조건 비교
+                    match_count = sum([
+                        any(cert in ' '.join(ipp['우대조건']) for cert in st.session_state.acquired_certificates),
+                        f"{selected_language_test}" in ' '.join(ipp['우대조건']),
+                        gpa >= 3.0  # 예시로 3.0 이상을 우대조건으로 가정
+                    ])
+                    
+                    st.write(f"**지원자 조건 일치도:** {match_count}/3")
+                    
+                    if st.button("지원하기", key=f"apply_ipp_{ipp['기업명']}_{i}"):
+                        st.success(f"{ipp['기업명']}에 지원서가 제출되었습니다!")
         else:
-            # 기간 분류
-            ipp_data['기간_정수'] = ipp_data['기간'].apply(parse_duration)
-            ipp_data['기간_분류'] = ipp_data['기간_정수'].apply(classify_duration)
-            
-            # 데이터 필터링
-            filtered_data = ipp_data[ipp_data['기간_분류'].isin(selected_duration)]
-            if selected_fields:
-                filtered_data = filtered_data[filtered_data['분야'].isin(selected_fields)]
-            
-            # 인턴십 공고 표시
-            st.subheader("📅 IPP 인턴십 공고")
-            if not filtered_data.empty:
-                for i, (_, ipp) in enumerate(filtered_data.iterrows()):
-                    with st.expander(f"{ipp['기업명']} - {ipp['분야']} ({ipp['기간']})"):
-                        st.write(f"**지원자격:** {ipp['지원자격']}")
-                        st.write(f"**마감일:** {ipp['마감일']}")
-                        st.write(f"**관련학과:** {', '.join(ipp['관련학과'])}")
-                        st.write("**우대조건:**")
-                        for condition in ipp['우대조건']:
-                            st.write(f"- {condition}")
-                        
-                        # 지원자의 조건과 우대조건 비교
-                        match_count = sum([
-                            any(cert in ' '.join(ipp['우대조건']) for cert in acquired_certs),
-                            f"{selected_language_test}" in ' '.join(ipp['우대조건']),
-                            gpa >= 3.0  # 예시로 3.0 이상을 우대조건으로 가정
-                        ])
-                        
-                        st.write(f"**지원자 조건 일치도:** {match_count}/3")
-                        
-                        if st.button("지원하기", key=f"apply_ipp_{ipp['기업명']}_{i}"):
-                            st.success(f"{ipp['기업명']}에 지원서가 제출되었습니다!")
-            else:
-                st.info("현재 조건에 맞는 IPP 인턴십 공고가 없습니다.")
+            st.info("현재 조건에 맞는 IPP 인턴십 공고가 없습니다.")
 
     st.info("""
     - IPP 인턴십은 학교와 기업이 공동으로 운영하는 장기현장실습 프로그램입니다.
