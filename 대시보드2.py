@@ -265,15 +265,19 @@ with tab3:
         
         if selected_department != "전체":
             # 선택된 학부에 따라 전공 목록 업데이트
-            majors = departments[selected_department]
+            majors = ["전체"] + departments[selected_department]
             selected_major = st.selectbox("전공", majors, key="major_ipp")
             
             # 선택된 전공에 따라 희망분야 목록 업데이트
-            fields = majors_fields[selected_major]
+            if selected_major != "전체":
+                fields = ["전체"] + majors_fields[selected_major]
+            else:
+                fields = ["전체"] + list(set([field for major_fields in majors_fields.values() for field in major_fields]))
             selected_field = st.selectbox("희망분야", fields, key="field_ipp")
         else:
             selected_major = "전체"
-            selected_field = "전체"
+            fields = ["전체"] + list(set([field for major_fields in majors_fields.values() for field in major_fields]))
+            selected_field = st.selectbox("희망분야", fields, key="field_ipp")
         
         duration_options = ["전체", "단기 (1~4개월)", "장기 (6개월~1년)"]
         selected_duration = st.selectbox("인턴십 기간", options=duration_options, index=0)
@@ -295,6 +299,9 @@ with tab3:
     
     if selected_department != "전체":
         filtered_ipp_data = filtered_ipp_data[filtered_ipp_data['관련학과'].apply(lambda x: selected_department in x)]
+    
+    if selected_major != "전체":
+        filtered_ipp_data = filtered_ipp_data[filtered_ipp_data['관련학과'].apply(lambda x: selected_major in x)]
     
     if selected_field != "전체":
         filtered_ipp_data = filtered_ipp_data[filtered_ipp_data['분야'] == selected_field]
@@ -327,7 +334,6 @@ with tab3:
                 
                 if st.button("지원하기", key=f"apply_ipp_{ipp['기업명']}_{i}"):
                     st.success(f"{ipp['기업명']}에 지원서가 제출되었습니다!")
-
 
     st.info("""
     - IPP 인턴십은 학교와 기업이 공동으로 운영하는 장기현장실습 프로그램입니다.
