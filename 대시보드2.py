@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import json
-import ast
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.metrics.pairwise import cosine_similarity
 from collections import Counter
@@ -36,8 +35,8 @@ features = pd.concat([encoded_fields,
                       axis=1)
 
 # IPP 데이터 전처리
-ipp_df['관련학과'] = ipp_df['관련학과'].apply(ast.literal_eval)  # 문자열을 리스트로 변환
-ipp_df['우대조건'] = ipp_df['우대조건'].apply(ast.literal_eval)  # 문자열을 리스트로 변환
+ipp_df['관련학과'] = ipp_df['관련학과'].apply(eval)  # 문자열을 리스트로 변환
+ipp_df['우대조건'] = ipp_df['우대조건'].apply(eval)  # 문자열을 리스트로 변환
 
 # 학부, 전공, 희망분야 관계 정의
 departments = {
@@ -308,7 +307,7 @@ with tab3:
                     for condition in ipp['우대조건']:
                         st.write(f"- {condition}")
                     
-                                        # 지원자의 조건과 우대조건 비교
+                    # 지원자의 조건과 우대조건 비교
                     match_count = sum([
                         any(cert in ' '.join(ipp['우대조건']) for cert in st.session_state.acquired_certificates),
                         f"{selected_language_test}" in ' '.join(ipp['우대조건']),
