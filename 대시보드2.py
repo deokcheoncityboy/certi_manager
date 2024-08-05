@@ -19,6 +19,10 @@ ipp_data = load_data("ipp.jsonl")
 df = pd.DataFrame(certificates_data)
 ipp_df = pd.DataFrame(ipp_data)
 
+# IPP 데이터 전처리
+ipp_df['관련학과'] = ipp_df['관련학과'].apply(lambda x: x if isinstance(x, list) else json.loads(x))
+ipp_df['우대조건'] = ipp_df['우대조건'].apply(lambda x: x if isinstance(x, list) else json.loads(x))
+
 # 자격증 데이터 전처리
 mlb = MultiLabelBinarizer()
 
@@ -34,9 +38,6 @@ features = pd.concat([encoded_fields,
                       df['popularity']], 
                       axis=1)
 
-# IPP 데이터 전처리
-ipp_df['관련학과'] = ipp_df['관련학과'].apply(eval)  # 문자열을 리스트로 변환
-ipp_df['우대조건'] = ipp_df['우대조건'].apply(eval)  # 문자열을 리스트로 변환
 
 # 학부, 전공, 희망분야 관계 정의
 departments = {
