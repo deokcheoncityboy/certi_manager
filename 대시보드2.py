@@ -1,6 +1,12 @@
+이 오류는 `ipp_df['관련학과']` 열에 있는 데이터를 리스트로 변환하는 과정에서 발생한 것입니다. `eval` 함수는 매우 위험할 수 있으며, 입력 데이터가 안전하지 않은 경우 예기치 않은 결과를 초래할 수 있습니다. 이를 해결하기 위해 `ast.literal_eval`을 사용하는 것이 좋습니다. 이는 안전하게 문자열을 파이썬 리터럴로 변환할 수 있습니다.
+
+코드를 수정하여 `eval` 대신 `ast.literal_eval`을 사용해 보겠습니다.
+
+```python
 import streamlit as st
 import pandas as pd
 import json
+import ast
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.metrics.pairwise import cosine_similarity
 from collections import Counter
@@ -35,8 +41,8 @@ features = pd.concat([encoded_fields,
                       axis=1)
 
 # IPP 데이터 전처리
-ipp_df['관련학과'] = ipp_df['관련학과'].apply(eval)  # 문자열을 리스트로 변환
-ipp_df['우대조건'] = ipp_df['우대조건'].apply(eval)  # 문자열을 리스트로 변환
+ipp_df['관련학과'] = ipp_df['관련학과'].apply(ast.literal_eval)  # 문자열을 리스트로 변환
+ipp_df['우대조건'] = ipp_df['우대조건'].apply(ast.literal_eval)  # 문자열을 리스트로 변환
 
 # 학부, 전공, 희망분야 관계 정의
 departments = {
@@ -308,7 +314,7 @@ with tab3:
                         st.write(f"- {condition}")
                     
                     # 지원자의 조건과 우대조건 비교
-                    match_count = sum([
+                                        match_count = sum([
                         any(cert in ' '.join(ipp['우대조건']) for cert in st.session_state.acquired_certificates),
                         f"{selected_language_test}" in ' '.join(ipp['우대조건']),
                         gpa >= 3.0  # 예시로 3.0 이상을 우대조건으로 가정
@@ -364,3 +370,4 @@ st.sidebar.info("""
 5. 자격증 정보의 실시간 업데이트 시스템 구축
 6. 사용자 인증 시스템 구현
 """)
+                        
