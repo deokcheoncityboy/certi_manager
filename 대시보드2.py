@@ -199,7 +199,7 @@ with st.sidebar:
                 st.rerun()
         
         if current_tab == "추천 자격증":
-            if st.button("자격증 추천 받기", key="recommend_cert_button"):
+            if st.button("자격증 추천 받기", key="recommend_cert_button_sidebar"):
                 st.session_state.recommend_certificates = True
     
     elif current_tab == "IPP 인턴십 공고":
@@ -220,7 +220,7 @@ with st.sidebar:
             st.session_state.show_preference_conditions = True
 # 탭 내용
 with tab1:
-    if st.sidebar.button("자격증 추천 받기", key="recommend_cert_button"):
+    if st.session_state.get('recommend_certificates', False):
         recommendations = recommend_certificates(grade, department, major, field, st.session_state.acquired_certificates)
         
         if recommendations.empty:
@@ -239,7 +239,7 @@ with tab1:
                     st.subheader("💬 코멘트")
                     if 'comments' not in st.session_state:
                         st.session_state.comments = {c['name']: [] for c in certificates_data}
-                    for j, comment in enumerate(st.session_state.comments[cert['name']]):
+                    for comment in st.session_state.comments[cert['name']]:
                         st.text(comment)
                     
                     # 새 코멘트 입력
@@ -255,7 +255,8 @@ with tab1:
             comparison_table['difficulty'] = comparison_table['difficulty'].apply(lambda x: '🌟' * int(x))
             comparison_table['popularity'] = comparison_table['popularity'].apply(lambda x: '🔥' * int(x))
             st.table(comparison_table.set_index('name'))
-
+    else:
+        st.info("좌측 사이드바에서 '자격증 추천 받기' 버튼을 클릭하세요.")
 
 with tab2:
     st.header(f"👨‍🎓 {department} {major} 재학생/졸업생 취득 자격증")
