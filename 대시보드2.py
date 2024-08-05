@@ -268,16 +268,21 @@ def get_fields_for_department_or_major(department, major):
     else:
         return ["전체"] + list(set([field for fields in majors_fields.values() for field in fields]))
 
-# 인턴십 기간을 분류하는 함수
+# 인턴십 기간을 분류하는 함수 수정
 def classify_duration(duration):
-    months = int(duration.split()[0])
-    if 1 <= months <= 4:
-        return "단기 (1~4개월)"
-    elif 5 <= months <= 12:
-        return "장기 (6개월~1년)"
-    else:
-        return "기타"
+    try:
+        # 숫자만 추출
+        months = int(re.findall(r'\d+', duration)[0])
+        if 1 <= months <= 4:
+            return "단기 (1~4개월)"
+        elif 5 <= months <= 12:
+            return "장기 (6개월~1년)"
+        else:
+            return "기타"
+    except (ValueError, IndexError):
+        return "기타"  # 형식이 맞지 않거나 숫자를 추출할 수 없는 경우
 
+# 탭 3: IPP 인턴십 공고
 with tab3:
     st.header("🏢 IPP 인턴십 공고")
     
