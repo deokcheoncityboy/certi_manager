@@ -222,7 +222,7 @@ with st.sidebar:
 
 # 탭 내용
 with tab1:
-    if st.sidebar.button("자격증 추천 받기"):
+    if st.sidebar.button("자격증 추천 받기", key="recommend_cert_button"):
         recommendations = recommend_certificates(grade, department, major, field, st.session_state.acquired_certificates)
         
         if recommendations.empty:
@@ -230,7 +230,7 @@ with tab1:
         else:
             st.header(f"📋 {grade}학년 {department} {major} {field} 분야 추천 자격증")
             
-            for _, cert in recommendations.iterrows():
+            for i, (_, cert) in enumerate(recommendations.iterrows()):
                 with st.expander(f"{cert['name']} - {cert['type']} | 난이도: {'🌟' * int(cert['difficulty'])} | 인기도: {'🔥' * int(cert['popularity'])} | 졸업요건: {cert['graduation_requirement']}"):
                     st.write(f"**관련 분야:** {', '.join(cert['related_fields'])}")
                     st.write(f"**시험 일정:** {cert['schedule']}")
@@ -241,12 +241,12 @@ with tab1:
                     st.subheader("💬 코멘트")
                     if 'comments' not in st.session_state:
                         st.session_state.comments = {c['name']: [] for c in certificates_data}
-                    for comment in st.session_state.comments[cert['name']]:
+                    for j, comment in enumerate(st.session_state.comments[cert['name']]):
                         st.text(comment)
                     
                     # 새 코멘트 입력
-                    new_comment = st.text_input(f"'{cert['name']}'에 대한 코멘트를 남겨주세요:", key=f"comment_{cert['name']}")
-                    if st.button("코멘트 추가", key=f"add_{cert['name']}"):
+                    new_comment = st.text_input(f"'{cert['name']}'에 대한 코멘트를 남겨주세요:", key=f"comment_input_{cert['name']}_{i}")
+                    if st.button("코멘트 추가", key=f"add_comment_{cert['name']}_{i}"):
                         st.session_state.comments[cert['name']].append(new_comment)
                         st.success("코멘트가 추가되었습니다.")
                         st.rerun()
@@ -257,6 +257,7 @@ with tab1:
             comparison_table['difficulty'] = comparison_table['difficulty'].apply(lambda x: '🌟' * int(x))
             comparison_table['popularity'] = comparison_table['popularity'].apply(lambda x: '🔥' * int(x))
             st.table(comparison_table.set_index('name'))
+
 
 with tab2:
     st.header(f"👨‍🎓 {department} {major} 재학생/졸업생 취득 자격증")
@@ -319,7 +320,7 @@ with tab3:
             def display_internships(data, duration_type):
                 st.subheader(f"📅 {duration_type} 인턴십")
                 if not data.empty:
-                    for _, ipp in data.iterrows():
+                    for i, (_, ipp) in enumerate(data.iterrows()):
                         with st.expander(f"{ipp['기업명']} - {ipp['분야']} ({ipp['기간']})"):
                             st.write(f"**지원자격:** {ipp['지원자격']}")
                             st.write(f"**마감일:** {ipp['마감일']}")
@@ -327,7 +328,7 @@ with tab3:
                             st.write("**우대조건:**")
                             for condition in ipp['우대조건']:
                                 st.write(f"- {condition}")
-                            if st.button("지원하기", key=f"apply_{duration_type}_{ipp['기업명']}"):
+                            if st.button("지원하기", key=f"apply_{duration_type}_{ipp['기업명']}_{i}"):
                                 st.success(f"{ipp['기업명']}에 지원서가 제출되었습니다!")
                 else:
                     st.info(f"현재 조건에 맞는 {duration_type} 인턴십 공고가 없습니다.")
@@ -341,6 +342,7 @@ with tab3:
                 display_internships(filtered_data[filtered_data['기간_분류'] == "장기 (6개월~1년)"], "장기")
     else:
         st.info("좌측 사이드바에서 검색 옵션을 선택하고 '인턴십 검색' 버튼을 클릭하세요.")
+
 
     st.info("""
     - IPP 인턴십은 학교와 기업이 공동으로 운영하는 장기현장실습 프로그램입니다.
