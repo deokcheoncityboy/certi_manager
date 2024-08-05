@@ -1,8 +1,3 @@
-이 오류는 `ipp_df['관련학과']` 열에 있는 데이터를 리스트로 변환하는 과정에서 발생한 것입니다. `eval` 함수는 매우 위험할 수 있으며, 입력 데이터가 안전하지 않은 경우 예기치 않은 결과를 초래할 수 있습니다. 이를 해결하기 위해 `ast.literal_eval`을 사용하는 것이 좋습니다. 이는 안전하게 문자열을 파이썬 리터럴로 변환할 수 있습니다.
-
-코드를 수정하여 `eval` 대신 `ast.literal_eval`을 사용해 보겠습니다.
-
-```python
 import streamlit as st
 import pandas as pd
 import json
