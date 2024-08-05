@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import json
-import re
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.metrics.pairwise import cosine_similarity
 from collections import Counter
@@ -108,11 +107,10 @@ def get_alumni_certificates(department, major):
     ]
     return pd.DataFrame(example_data)
 
-# 인턴십 기간을 분류하는 함수
+# 인턴십 기간을 분류하는 함수 (re 모듈 사용 없이 수정)
 def classify_duration(duration):
     try:
-        # 숫자만 추출
-        months = int(re.findall(r'\d+', duration)[0])
+        months = int(duration.split()[0])
         if 1 <= months <= 4:
             return "단기 (1~4개월)"
         elif 5 <= months <= 12:
@@ -121,6 +119,7 @@ def classify_duration(duration):
             return "기타"
     except (ValueError, IndexError):
         return "기타"  # 형식이 맞지 않거나 숫자를 추출할 수 없는 경우
+
 
 # 학부 또는 전공에 따른 희망분야를 반환하는 함수
 def get_fields_for_department_or_major(department, major):
@@ -289,10 +288,10 @@ with tab3:
         # 학점 입력
         gpa = st.number_input("학점 (0.0 ~ 4.5)", min_value=0.0, max_value=4.5, step=0.1, format="%.1f")
 
-    # 필터링 로직
+   # 필터링 로직
     filtered_ipp_data = ipp_df.copy()
     
-    # 인턴십 기간 분류 추가
+   # 인턴십 기간 분류 추가
     filtered_ipp_data['기간_분류'] = filtered_ipp_data['기간'].apply(classify_duration)
     
     if selected_department != "전체":
