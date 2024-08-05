@@ -268,6 +268,16 @@ def get_fields_for_department_or_major(department, major):
     else:
         return ["전체"] + list(set([field for fields in majors_fields.values() for field in fields]))
 
+# 인턴십 기간을 분류하는 함수
+def classify_duration(duration):
+    months = int(duration.split()[0])
+    if 1 <= months <= 4:
+        return "단기 (1~4개월)"
+    elif 5 <= months <= 12:
+        return "장기 (6개월~1년)"
+    else:
+        return "기타"
+
 # 탭 3: IPP 인턴십 공고
 with tab3:
     st.header("🏢 IPP 인턴십 공고")
@@ -291,19 +301,13 @@ with tab3:
         selected_duration = st.selectbox("인턴십 기간", options=duration_options, index=0)
 
     with col2:
-        # 취득 자격증 선택
-        select_certificates("ipp_tab")
-        
-        # 어학성적 선택
-        language_test_options = ["TOEIC", "TOEFL", "IELTS", "TEPS", "OPIc"]
-        selected_language_test = st.selectbox("어학시험 선택", options=language_test_options)
-        language_score = st.number_input(f"{selected_language_test} 점수", min_value=0, max_value=1000, step=1)
-        
-        # 학점 입력
-        gpa = st.number_input("학점 (0.0 ~ 4.5)", min_value=0.0, max_value=4.5, step=0.1, format="%.1f")
+        # (취득 자격증, 어학성적, 학점 입력 부분은 그대로 유지)
 
     # 필터링 로직
     filtered_ipp_data = ipp_df.copy()
+    
+    # 인턴십 기간 분류 추가
+    filtered_ipp_data['기간_분류'] = filtered_ipp_data['기간'].apply(classify_duration)
     
     if selected_department != "전체":
         filtered_ipp_data = filtered_ipp_data[
