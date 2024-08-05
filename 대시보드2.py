@@ -183,7 +183,7 @@ with st.sidebar:
         st.subheader("취득한 자격증 선택")
         all_certificates = sorted(df['name'].tolist())
         selected_cert = st.selectbox("자격증 선택", [""] + all_certificates)
-        if selected_cert and st.button("추가"):
+        if selected_cert and st.button("추가", key="add_cert"):
             if selected_cert not in st.session_state.acquired_certificates:
                 st.session_state.acquired_certificates.append(selected_cert)
                 st.success(f"'{selected_cert}'가 취득한 자격증 목록에 추가되었습니다.")
@@ -199,10 +199,8 @@ with st.sidebar:
                 st.rerun()
         
         if current_tab == "추천 자격증":
-            if st.button("자격증 추천 받기"):
+            if st.button("자격증 추천 받기", key="recommend_cert_button"):
                 st.session_state.recommend_certificates = True
-            else:
-                st.session_state.recommend_certificates = False
     
     elif current_tab == "IPP 인턴십 공고":
         st.subheader("인턴십 검색 옵션")
@@ -215,11 +213,11 @@ with st.sidebar:
         
         min_gpa = st.slider("최소 학점", 0.0, 4.5, 0.0, 0.1)
         
-        if st.button("인턴십 검색"):
+        if st.button("IPP 검색", key="search_internship_button"):
             st.session_state.search_internships = True
-        else:
-            st.session_state.search_internships = False
-
+        
+        if st.button("우대조건", key="preference_conditions_button"):
+            st.session_state.show_preference_conditions = True
 # 탭 내용
 with tab1:
     if st.sidebar.button("자격증 추천 받기", key="recommend_cert_button"):
@@ -292,9 +290,6 @@ with tab2:
     """)
     
 with tab3:
-    st.session_state.current_tab = 'IPP 인턴십 공고'
-    st.header("🏢 IPP 인턴십 공고")
-    
     if st.session_state.get('search_internships', False):
         ipp_data = load_ipp_data()
         
@@ -316,33 +311,38 @@ with tab3:
             # GPA 필터링 (예시 - 실제 데이터에 맞게 수정 필요)
             filtered_data = filtered_data[filtered_data['우대조건'].apply(lambda x: any(f"학점 {min_gpa} 이상" in cond for cond in x))]
             
-            # 인턴십 공고 표시 함수
-            def display_internships(data, duration_type):
-                st.subheader(f"📅 {duration_type} 인턴십")
-                if not data.empty:
-                    for i, (_, ipp) in enumerate(data.iterrows()):
-                        with st.expander(f"{ipp['기업명']} - {ipp['분야']} ({ipp['기간']})"):
-                            st.write(f"**지원자격:** {ipp['지원자격']}")
-                            st.write(f"**마감일:** {ipp['마감일']}")
-                            st.write(f"**관련학과:** {', '.join(ipp['관련학과'])}")
-                            st.write("**우대조건:**")
-                            for condition in ipp['우대조건']:
-                                st.write(f"- {condition}")
-                            if st.button("지원하기", key=f"apply_{duration_type}_{ipp['기업명']}_{i}"):
-                                st.success(f"{ipp['기업명']}에 지원서가 제출되었습니다!")
-                else:
-                    st.info(f"현재 조건에 맞는 {duration_type} 인턴십 공고가 없습니다.")
-            
-            # 단기 인턴십 표시
-            if "단기 (1~4개월)" in selected_duration:
-                display_internships(filtered_data[filtered_data['기간_분류'] == "단기 (1~4개월)"], "단기")
-            
-            # 장기 인턴십 표시
-            if "장기 (6개월~1년)" in selected_duration:
-                display_internships(filtered_data[filtered_data['기간_분류'] == "장기 (6개월~1년)"], "장기")
+            # 인턴십 공고 표시
+            st.subheader("📅 IPP 인턴십 공고")
+            if not filtered_data.empty:
+                for i, (_, ipp) in enumerate(filtered_data.iterrows()):
+                    with st.expander(f"{ipp['기업명']} - {ipp['분야']} ({ipp['기간']})"):
+                        st.write(f"**지원자격:** {ipp['지원자격']}")
+                        st.write(f"**마감일:** {ipp['마감일']}")
+                        st.write(f"**관련학과:** {', '.join(ipp['관련학과'])}")
+                        st.write("**우대조건:**")
+                        for condition in ipp['우대조건']:
+                            st.write(f"- {condition}")
+                        if st.button("지원하기", key=f"apply_ipp_{ipp['기업명']}_{i}"):
+                            st.success(f"{ipp['기업명']}에 지원서가 제출되었습니다!")
+            else:
+                st.info("현재 조건에 맞는 IPP 인턴십 공고가 없습니다.")
     else:
-        st.info("좌측 사이드바에서 검색 옵션을 선택하고 '인턴십 검색' 버튼을 클릭하세요.")
+        st.info("좌측 사이드바에서 검색 옵션을 선택하고 'IPP 검색' 버튼을 클릭하세요.")
 
+    if st.session_state.get('show_preference_conditions', False):
+        st.subheader("🌟 우대조건 정보")
+        st.write("""
+        IPP 인턴십 지원 시 다음과 같은 우대조건이 있을 수 있습니다:
+        
+        1. 학점: 대부분의 기업에서 일정 수준 이상의 학점을 요구합니다. (예: 3.0/4.5 이상)
+        2. 어학능력: TOEIC, TOEFL, IELTS 등의 공인 영어 성적
+        3. 자격증: 전공 관련 자격증 (예: 정보처리기사, 빅데이터분석기사 등)
+        4. 프로젝트 경험: 학교 또는 개인 프로젝트 경험
+        5. 관련 수상 경력: 공모전, 해커톤 등에서의 수상 경력
+        6. 특정 기술 능력: 프로그래밍 언어, 소프트웨어 도구 등의 능력
+        
+        각 기업마다 우대조건이 다를 수 있으니, 지원 전 꼼꼼히 확인하시기 바랍니다.
+        """)
 
     st.info("""
     - IPP 인턴십은 학교와 기업이 공동으로 운영하는 장기현장실습 프로그램입니다.
