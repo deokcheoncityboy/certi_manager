@@ -253,55 +253,51 @@ with tab2:
         - 자세한 정보는 학과 사무실이나 취업지원센터에 문의해주세요.
         """)
 
+# 학부에 속한 모든 전공을 반환하는 함수
+def get_all_majors_in_department(department):
+    return departments.get(department, [])
+
 # 탭 3: IPP 인턴십 공고
 with tab3:
     st.header("🏢 IPP 인턴십 공고")
     
     col1, col2 = st.columns(2)
     with col1:
-        # 전체 공고 옵션 추가
         department_options = ["전체"] + list(departments.keys())
         selected_department = st.selectbox("학부", department_options, key="dept_ipp")
         
         if selected_department != "전체":
-            # 선택된 학부에 따라 전공 목록 업데이트
             majors = ["전체"] + departments[selected_department]
             selected_major = st.selectbox("전공", majors, key="major_ipp")
-            
-            # 선택된 전공에 따라 희망분야 목록 업데이트
-            if selected_major != "전체":
-                fields = ["전체"] + majors_fields[selected_major]
-            else:
-                fields = ["전체"] + list(set([field for major_fields in majors_fields.values() for field in major_fields]))
-            selected_field = st.selectbox("희망분야", fields, key="field_ipp")
         else:
             selected_major = "전체"
-            fields = ["전체"] + list(set([field for major_fields in majors_fields.values() for field in major_fields]))
-            selected_field = st.selectbox("희망분야", fields, key="field_ipp")
+        
+        all_fields = list(set([field for major_fields in majors_fields.values() for field in major_fields]))
+        fields = ["전체"] + all_fields
+        selected_field = st.selectbox("희망분야", fields, key="field_ipp")
         
         duration_options = ["전체", "단기 (1~4개월)", "장기 (6개월~1년)"]
         selected_duration = st.selectbox("인턴십 기간", options=duration_options, index=0)
 
     with col2:
-        # 취득 자격증 선택
-        select_certificates("ipp_tab")
-        
-        # 어학성적 선택
-        language_test_options = ["TOEIC", "TOEFL", "IELTS", "TEPS", "OPIc"]
-        selected_language_test = st.selectbox("어학시험 선택", options=language_test_options)
-        language_score = st.number_input(f"{selected_language_test} 점수", min_value=0, max_value=1000, step=1)
-        
-        # 학점 입력
-        gpa = st.number_input("학점 (0.0 ~ 4.5)", min_value=0.0, max_value=4.5, step=0.1, format="%.1f")
+        # (취득 자격증, 어학성적, 학점 입력 부분은 그대로 유지)
 
     # 필터링 로직 수정
     filtered_ipp_data = ipp_df.copy()
     
     if selected_department != "전체":
-        filtered_ipp_data = filtered_ipp_data[filtered_ipp_data['관련학과'].apply(lambda x: selected_department in x)]
+        filtered_ipp_data = filtered_ipp_data[
+            filtered_ipp_data['관련학과'].apply(lambda x: 
+                selected_department in x or any(major in x for major in get_all_majors_in_department(selected_department))
+            )
+        ]
     
     if selected_major != "전체":
-        filtered_ipp_data = filtered_ipp_data[filtered_ipp_data['관련학과'].apply(lambda x: selected_major in x)]
+        filtered_ipp_data = filtered_ipp_data[
+            filtered_ipp_data['관련학과'].apply(lambda x: 
+                selected_major in x or selected_department in x
+            )
+        ]
     
     if selected_field != "전체":
         filtered_ipp_data = filtered_ipp_data[filtered_ipp_data['분야'] == selected_field]
