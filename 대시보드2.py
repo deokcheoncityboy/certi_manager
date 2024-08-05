@@ -259,19 +259,24 @@ with tab3:
     
     col1, col2 = st.columns(2)
     with col1:
-        # 학부 선택을 활성화
-        selected_department = st.selectbox("학부", list(departments.keys()), key="dept_ipp")
+        # 전체 공고 옵션 추가
+        department_options = ["전체"] + list(departments.keys())
+        selected_department = st.selectbox("학부", department_options, key="dept_ipp")
         
-        # 선택된 학부에 따라 전공 목록 업데이트
-        majors = departments[selected_department]
-        selected_major = st.selectbox("전공", majors, key="major_ipp")
+        if selected_department != "전체":
+            # 선택된 학부에 따라 전공 목록 업데이트
+            majors = departments[selected_department]
+            selected_major = st.selectbox("전공", majors, key="major_ipp")
+            
+            # 선택된 전공에 따라 희망분야 목록 업데이트
+            fields = majors_fields[selected_major]
+            selected_field = st.selectbox("희망분야", fields, key="field_ipp")
+        else:
+            selected_major = "전체"
+            selected_field = "전체"
         
-        # 선택된 전공에 따라 희망분야 목록 업데이트
-        fields = majors_fields[selected_major]
-        selected_field = st.selectbox("희망분야", fields, key="field_ipp")
-        
-        duration_options = ["단기 (1~4개월)", "장기 (6개월~1년)"]
-        selected_duration = st.multiselect("인턴십 기간", options=duration_options, default=duration_options)
+        duration_options = ["전체", "단기 (1~4개월)", "장기 (6개월~1년)"]
+        selected_duration = st.selectbox("인턴십 기간", options=duration_options, index=0)
 
     with col2:
         # 취득 자격증 선택
@@ -285,41 +290,44 @@ with tab3:
         # 학점 입력
         gpa = st.number_input("학점 (0.0 ~ 4.5)", min_value=0.0, max_value=4.5, step=0.1, format="%.1f")
 
-    # 학과 및 분야 필터링
-    filtered_ipp_data = ipp_df[ipp_df['관련학과'].apply(lambda x: selected_department in x)]
-    filtered_ipp_data = filtered_ipp_data[filtered_ipp_data['분야'] == selected_field]
+    # 필터링 로직 수정
+    filtered_ipp_data = ipp_df.copy()
+    
+    if selected_department != "전체":
+        filtered_ipp_data = filtered_ipp_data[filtered_ipp_data['관련학과'].apply(lambda x: selected_department in x)]
+    
+    if selected_field != "전체":
+        filtered_ipp_data = filtered_ipp_data[filtered_ipp_data['분야'] == selected_field]
+    
+    if selected_duration != "전체":
+        filtered_ipp_data = filtered_ipp_data[filtered_ipp_data['기간_분류'] == selected_duration]
     
     if filtered_ipp_data.empty:
-        st.warning(f"{selected_department} {selected_field} 관련 IPP 인턴십 공고가 현재 없습니다.")
+        st.warning(f"선택한 조건에 맞는 IPP 인턴십 공고가 현재 없습니다.")
     else:
-        # 데이터 필터링
-        filtered_ipp_data = filtered_ipp_data[filtered_ipp_data['기간_분류'].isin(selected_duration)]
-        
         # 인턴십 공고 표시
         st.subheader("📅 IPP 인턴십 공고")
-        if not filtered_ipp_data.empty:
-            for i, (_, ipp) in enumerate(filtered_ipp_data.iterrows()):
-                with st.expander(f"{ipp['기업명']} - {ipp['분야']} ({ipp['기간']})"):
-                    st.write(f"**지원자격:** {ipp['지원자격']}")
-                    st.write(f"**마감일:** {ipp['마감일']}")
-                    st.write(f"**관련학과:** {', '.join(ipp['관련학과'])}")
-                    st.write("**우대조건:**")
-                    for condition in ipp['우대조건']:
-                        st.write(f"- {condition}")
-                    
-                    # 지원자의 조건과 우대조건 비교
-                    match_count = sum([
-                        any(cert in ' '.join(ipp['우대조건']) for cert in st.session_state.acquired_certificates),
-                        f"{selected_language_test}" in ' '.join(ipp['우대조건']),
-                        gpa >= 3.0  # 예시로 3.0 이상을 우대조건으로 가정
-                    ])
-                    
-                    st.write(f"**지원자 조건 일치도:** {match_count}/3")
-                    
-                    if st.button("지원하기", key=f"apply_ipp_{ipp['기업명']}_{i}"):
-                        st.success(f"{ipp['기업명']}에 지원서가 제출되었습니다!")
-        else:
-            st.info("현재 조건에 맞는 IPP 인턴십 공고가 없습니다.")
+        for i, (_, ipp) in enumerate(filtered_ipp_data.iterrows()):
+            with st.expander(f"{ipp['기업명']} - {ipp['분야']} ({ipp['기간']})"):
+                st.write(f"**지원자격:** {ipp['지원자격']}")
+                st.write(f"**마감일:** {ipp['마감일']}")
+                st.write(f"**관련학과:** {', '.join(ipp['관련학과'])}")
+                st.write("**우대조건:**")
+                for condition in ipp['우대조건']:
+                    st.write(f"- {condition}")
+                
+                # 지원자의 조건과 우대조건 비교
+                match_count = sum([
+                    any(cert in ' '.join(ipp['우대조건']) for cert in st.session_state.acquired_certificates),
+                    f"{selected_language_test}" in ' '.join(ipp['우대조건']),
+                    gpa >= 3.0  # 예시로 3.0 이상을 우대조건으로 가정
+                ])
+                
+                st.write(f"**지원자 조건 일치도:** {match_count}/3")
+                
+                if st.button("지원하기", key=f"apply_ipp_{ipp['기업명']}_{i}"):
+                    st.success(f"{ipp['기업명']}에 지원서가 제출되었습니다!")
+
 
     st.info("""
     - IPP 인턴십은 학교와 기업이 공동으로 운영하는 장기현장실습 프로그램입니다.
