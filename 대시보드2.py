@@ -308,8 +308,8 @@ with tab3:
                     for condition in ipp['우대조건']:
                         st.write(f"- {condition}")
                     
-                    # 지원자의 조건과 우대조건 비교
-                                        match_count = sum([
+                                        # 지원자의 조건과 우대조건 비교
+                    match_count = sum([
                         any(cert in ' '.join(ipp['우대조건']) for cert in st.session_state.acquired_certificates),
                         f"{selected_language_test}" in ' '.join(ipp['우대조건']),
                         gpa >= 3.0  # 예시로 3.0 이상을 우대조건으로 가정
@@ -365,4 +365,3 @@ st.sidebar.info("""
 5. 자격증 정보의 실시간 업데이트 시스템 구축
 6. 사용자 인증 시스템 구현
 """)
-                        
