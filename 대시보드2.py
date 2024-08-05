@@ -158,7 +158,18 @@ def classify_duration(months):
 st.set_page_config(layout="wide", page_title="학생 종합 역량 관리 시스템")
 st.title("🎓 학생 종합 역량 관리 시스템")
 
-# 사이드바 구성
+# 탭 생성
+tab1, tab2, tab3 = st.tabs(["📊 추천 자격증", "👨‍🎓 우리 학교 재학생/졸업생이 취득한 자격증", "🏢 IPP 인턴십 공고"])
+
+# 현재 선택된 탭 확인
+if tab1:
+    current_tab = "추천 자격증"
+elif tab2:
+    current_tab = "우리 학교 재학생/졸업생이 취득한 자격증"
+elif tab3:
+    current_tab = "IPP 인턴십 공고"
+
+# 탭별 사이드바 구성
 with st.sidebar:
     st.header("사용자 정보 입력")
     grade = st.selectbox("학년", [1, 2, 3, 4])
@@ -168,8 +179,7 @@ with st.sidebar:
     fields = majors_fields[major]
     field = st.selectbox("희망분야", fields)
 
-    # 현재 선택된 탭에 따라 다른 사이드바 내용 표시
-    if st.session_state.get('current_tab') in [None, '추천 자격증', '우리 학교 재학생/졸업생이 취득한 자격증']:
+    if current_tab in ["추천 자격증", "우리 학교 재학생/졸업생이 취득한 자격증"]:
         st.subheader("취득한 자격증 선택")
         all_certificates = sorted(df['name'].tolist())
         selected_cert = st.selectbox("자격증 선택", [""] + all_certificates)
@@ -187,8 +197,14 @@ with st.sidebar:
                 removed_cert = st.session_state.acquired_certificates.pop(i)
                 st.success(f"'{removed_cert}'가 취득한 자격증 목록에서 제거되었습니다.")
                 st.rerun()
+        
+        if current_tab == "추천 자격증":
+            if st.button("자격증 추천 받기"):
+                st.session_state.recommend_certificates = True
+            else:
+                st.session_state.recommend_certificates = False
     
-    elif st.session_state.get('current_tab') == 'IPP 인턴십 공고':
+    elif current_tab == "IPP 인턴십 공고":
         st.subheader("인턴십 검색 옵션")
         duration_options = ["단기 (1~4개월)", "장기 (6개월~1년)"]
         selected_duration = st.multiselect("인턴십 기간", options=duration_options, default=duration_options)
@@ -204,10 +220,7 @@ with st.sidebar:
         else:
             st.session_state.search_internships = False
 
-# 탭 생성
-tab1, tab2, tab3 = st.tabs(["📊 추천 자격증", "👨‍🎓 우리 학교 재학생/졸업생이 취득한 자격증", "🏢 IPP 인턴십 공고"])
-
-
+# 탭 내용
 with tab1:
     if st.sidebar.button("자격증 추천 받기"):
         recommendations = recommend_certificates(grade, department, major, field, st.session_state.acquired_certificates)
