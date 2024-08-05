@@ -13,9 +13,13 @@ def load_data(file_path):
 
 # 데이터 불러오기
 certificates_data = load_data("dashboard.jsonl")
+ipp_data = load_data("ipp.jsonl")
 
-# 데이터프레임 생성 및 전처리
+# 데이터프레임 생성
 df = pd.DataFrame(certificates_data)
+ipp_df = pd.DataFrame(ipp_data)
+
+# 자격증 데이터 전처리
 mlb = MultiLabelBinarizer()
 
 # 모든 관련 필드를 함께 인코딩
@@ -29,6 +33,10 @@ features = pd.concat([encoded_fields,
                       pd.DataFrame(df['career_level'].tolist()).max(axis=1),
                       df['popularity']], 
                       axis=1)
+
+# IPP 데이터 전처리
+ipp_df['관련학과'] = ipp_df['관련학과'].apply(eval)  # 문자열을 리스트로 변환
+ipp_df['우대조건'] = ipp_df['우대조건'].apply(eval)  # 문자열을 리스트로 변환
 
 # 학부, 전공, 희망분야 관계 정의
 departments = {
@@ -105,34 +113,6 @@ def get_alumni_certificates(department, major):
     ]
     return pd.DataFrame(example_data)
 
-# IPP 인턴십 데이터 로드 함수
-def load_ipp_data():
-    # 실제 구현에서는 데이터베이스나 API에서 데이터를 가져와야 합니다.
-    # 여기서는 예시 데이터를 사용합니다.
-    return pd.DataFrame({
-        "기업명": ["테크놀로지 주식회사", "글로벌 시스템즈", "스마트 솔루션스", "이노베이션 랩스", "퓨처 테크", "메가 코퍼레이션"],
-        "분야": ["소프트웨어 개발", "네트워크 엔지니어링", "데이터 분석", "인공지능", "클라우드 컴퓨팅", "로보틱스"],
-        "기간": ["6개월", "4개월", "3개월", "12개월", "2개월", "9개월"],
-        "지원자격": ["3학년 이상", "2학년 이상", "3학년 이상", "4학년", "2학년 이상", "3학년 이상"],
-        "마감일": ["2024-09-30", "2024-08-15", "2024-10-31", "2024-09-15", "2024-08-31", "2024-11-30"],
-        "관련학과": [
-            ["컴퓨터공학부", "전기전자통신공학부"],
-            ["전기전자통신공학부", "컴퓨터공학부"],
-            ["컴퓨터공학부", "산업경영학부"],
-            ["컴퓨터공학부", "전기전자통신공학부"],
-            ["컴퓨터공학부", "메카트로닉스공학부"],
-            ["메카트로닉스공학부", "컴퓨터공학부"]
-        ],
-        "우대조건": [
-            ["학점 3.5 이상", "토익 700점 이상"],
-            ["운전면허 보유", "한국사 자격증"],
-            ["데이터 분석 관련 자격증"],
-            ["인공지능 관련 프로젝트 경험", "학점 3.8 이상"],
-            ["클라우드 자격증", "토익 800점 이상"],
-            ["로봇 관련 경진대회 수상 경력"]
-        ]
-    })
-
 # 기간을 정수로 변환하는 함수
 def parse_duration(duration):
     try:
@@ -149,6 +129,10 @@ def classify_duration(months):
     else:
         return "기타"
 
+# IPP 데이터에 기간 정보 추가
+ipp_df['기간_정수'] = ipp_df['기간'].apply(parse_duration)
+ipp_df['기간_분류'] = ipp_df['기간_정수'].apply(classify_duration)
+
 # Streamlit 앱 설정
 st.set_page_config(layout="wide", page_title="학생 종합 역량 관리 시스템")
 st.title("🎓 학생 종합 역량 관리 시스템")
@@ -163,9 +147,6 @@ if 'major' not in st.session_state:
 if 'field' not in st.session_state:
     st.session_state.field = majors_fields[st.session_state.major][0]
 
-# 탭 생성
-tab1, tab2, tab3 = st.tabs(["📊 추천 자격증", "👨‍🎓 우리 학교 재학생/졸업생이 취득한 자격증", "🏢 IPP 인턴십 공고"])
-
 # 자격증 선택 함수
 def select_certificates(key):
     all_certificates = sorted(df['name'].tolist())
@@ -174,6 +155,10 @@ def select_certificates(key):
     if selected_certs != st.session_state.acquired_certificates:
         st.session_state.acquired_certificates = selected_certs
         st.rerun()
+
+# 탭 생성
+tab1, tab2, tab3 = st.tabs(["📊 추천 자격증", "👨‍🎓 우리 학교 재학생/졸업생이 취득한 자격증", "🏢 IPP 인턴십 공고"])
+
 # 탭 1: 추천 자격증
 with tab1:
     st.header("📊 자격증 추천")
@@ -225,7 +210,6 @@ with tab1:
         comparison_table['difficulty'] = comparison_table['difficulty'].apply(lambda x: '🌟' * int(x))
         comparison_table['popularity'] = comparison_table['popularity'].apply(lambda x: '🔥' * int(x))
         st.table(comparison_table.set_index('name'))
-
 
 # 탭 2: 우리 학교 재학생/졸업생이 취득한 자격증
 with tab2:
@@ -301,26 +285,20 @@ with tab3:
         # 학점 입력
         gpa = st.number_input("학점 (0.0 ~ 4.5)", min_value=0.0, max_value=4.5, step=0.1, format="%.1f")
 
-    ipp_data = load_ipp_data()
-    
     # 학과 및 분야 필터링
-    ipp_data = ipp_data[ipp_data['관련학과'].apply(lambda x: st.session_state.department in x)]
-    ipp_data = ipp_data[ipp_data['분야'] == st.session_state.field]
+    filtered_ipp_data = ipp_df[ipp_df['관련학과'].apply(lambda x: st.session_state.department in x)]
+    filtered_ipp_data = filtered_ipp_data[filtered_ipp_data['분야'] == st.session_state.field]
     
-    if ipp_data.empty:
+    if filtered_ipp_data.empty:
         st.warning(f"{st.session_state.department} {st.session_state.field} 관련 IPP 인턴십 공고가 현재 없습니다.")
     else:
-        # 기간 분류
-        ipp_data['기간_정수'] = ipp_data['기간'].apply(parse_duration)
-        ipp_data['기간_분류'] = ipp_data['기간_정수'].apply(classify_duration)
-        
         # 데이터 필터링
-        filtered_data = ipp_data[ipp_data['기간_분류'].isin(selected_duration)]
+        filtered_ipp_data = filtered_ipp_data[filtered_ipp_data['기간_분류'].isin(selected_duration)]
         
         # 인턴십 공고 표시
         st.subheader("📅 IPP 인턴십 공고")
-        if not filtered_data.empty:
-            for i, (_, ipp) in enumerate(filtered_data.iterrows()):
+        if not filtered_ipp_data.empty:
+            for i, (_, ipp) in enumerate(filtered_ipp_data.iterrows()):
                 with st.expander(f"{ipp['기업명']} - {ipp['분야']} ({ipp['기간']})"):
                     st.write(f"**지원자격:** {ipp['지원자격']}")
                     st.write(f"**마감일:** {ipp['마감일']}")
