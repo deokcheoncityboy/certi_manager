@@ -278,7 +278,6 @@ def classify_duration(duration):
     else:
         return "기타"
 
-# 탭 3: IPP 인턴십 공고
 with tab3:
     st.header("🏢 IPP 인턴십 공고")
     
@@ -301,7 +300,16 @@ with tab3:
         selected_duration = st.selectbox("인턴십 기간", options=duration_options, index=0)
 
     with col2:
-        # (취득 자격증, 어학성적, 학점 입력 부분은 그대로 유지)
+        # 취득 자격증 선택
+        select_certificates("ipp_tab")
+        
+        # 어학성적 선택
+        language_test_options = ["TOEIC", "TOEFL", "IELTS", "TEPS", "OPIc"]
+        selected_language_test = st.selectbox("어학시험 선택", options=language_test_options)
+        language_score = st.number_input(f"{selected_language_test} 점수", min_value=0, max_value=1000, step=1)
+        
+        # 학점 입력
+        gpa = st.number_input("학점 (0.0 ~ 4.5)", min_value=0.0, max_value=4.5, step=0.1, format="%.1f")
 
     # 필터링 로직
     filtered_ipp_data = ipp_df.copy()
@@ -354,7 +362,6 @@ with tab3:
                 
                 if st.button("지원하기", key=f"apply_ipp_{ipp['기업명']}_{i}"):
                     st.success(f"{ipp['기업명']}에 지원서가 제출되었습니다!")
-
     st.info("""
     - IPP 인턴십은 학교와 기업이 공동으로 운영하는 장기현장실습 프로그램입니다.
     - 실제 근무 경험을 통해 실무 능력을 향상시킬 수 있는 좋은 기회입니다.
