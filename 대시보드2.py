@@ -274,9 +274,17 @@ with tab3:
     
     col1, col2 = st.columns(2)
     with col1:
-        st.selectbox("학부", list(departments.keys()), key="dept_ipp", disabled=True, value=st.session_state.department)
-        st.selectbox("전공", departments[st.session_state.department], key="major_ipp", disabled=True, value=st.session_state.major)
-        st.selectbox("희망분야", majors_fields[st.session_state.major], key="field_ipp", disabled=True, value=st.session_state.field)
+        departments_list = list(departments.keys())
+        dept_index = departments_list.index(st.session_state.department)
+        st.selectbox("학부", departments_list, key="dept_ipp", disabled=True, index=dept_index)
+
+        majors_list = departments[st.session_state.department]
+        major_index = majors_list.index(st.session_state.major)
+        st.selectbox("전공", majors_list, key="major_ipp", disabled=True, index=major_index)
+
+        fields_list = majors_fields[st.session_state.major]
+        field_index = fields_list.index(st.session_state.field)
+        st.selectbox("희망분야", fields_list, key="field_ipp", disabled=True, index=field_index)
         
         duration_options = ["단기 (1~4개월)", "장기 (6개월~1년)"]
         selected_duration = st.multiselect("인턴십 기간", options=duration_options, default=duration_options)
