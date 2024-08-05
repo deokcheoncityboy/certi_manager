@@ -161,13 +161,16 @@ st.title("🎓 학생 종합 역량 관리 시스템")
 # 탭 생성
 tab1, tab2, tab3 = st.tabs(["📊 추천 자격증", "👨‍🎓 우리 학교 재학생/졸업생이 취득한 자격증", "🏢 IPP 인턴십 공고"])
 
-# 현재 선택된 탭 확인
+# 현재 선택된 탭 추적
+if 'current_tab' not in st.session_state:
+    st.session_state.current_tab = "추천 자격증"
+
 if tab1:
-    current_tab = "추천 자격증"
+    st.session_state.current_tab = "추천 자격증"
 elif tab2:
-    current_tab = "우리 학교 재학생/졸업생이 취득한 자격증"
+    st.session_state.current_tab = "우리 학교 재학생/졸업생이 취득한 자격증"
 elif tab3:
-    current_tab = "IPP 인턴십 공고"
+    st.session_state.current_tab = "IPP 인턴십 공고"
 
 # 탭별 사이드바 구성
 with st.sidebar:
@@ -179,7 +182,7 @@ with st.sidebar:
     fields = majors_fields[major]
     field = st.selectbox("희망분야", fields)
 
-    if current_tab in ["추천 자격증", "우리 학교 재학생/졸업생이 취득한 자격증"]:
+    if st.session_state.current_tab in ["추천 자격증", "우리 학교 재학생/졸업생이 취득한 자격증"]:
         st.subheader("취득한 자격증 선택")
         all_certificates = sorted(df['name'].tolist())
         selected_cert = st.selectbox("자격증 선택", [""] + all_certificates)
@@ -198,11 +201,11 @@ with st.sidebar:
                 st.success(f"'{removed_cert}'가 취득한 자격증 목록에서 제거되었습니다.")
                 st.rerun()
         
-        if current_tab == "추천 자격증":
+        if st.session_state.current_tab == "추천 자격증":
             if st.button("자격증 추천 받기", key="recommend_cert_button_sidebar"):
                 st.session_state.recommend_certificates = True
     
-    elif current_tab == "IPP 인턴십 공고":
+    elif st.session_state.current_tab == "IPP 인턴십 공고":
         st.subheader("인턴십 검색 옵션")
         duration_options = ["단기 (1~4개월)", "장기 (6개월~1년)"]
         selected_duration = st.multiselect("인턴십 기간", options=duration_options, default=duration_options)
