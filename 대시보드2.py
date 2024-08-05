@@ -259,17 +259,16 @@ with tab3:
     
     col1, col2 = st.columns(2)
     with col1:
-        departments_list = list(departments.keys())
-        dept_index = departments_list.index(st.session_state.department)
-        st.selectbox("학부", departments_list, key="dept_ipp", disabled=True, index=dept_index)
-
-        majors_list = departments[st.session_state.department]
-        major_index = majors_list.index(st.session_state.major)
-        st.selectbox("전공", majors_list, key="major_ipp", disabled=True, index=major_index)
-
-        fields_list = majors_fields[st.session_state.major]
-        field_index = fields_list.index(st.session_state.field)
-        st.selectbox("희망분야", fields_list, key="field_ipp", disabled=True, index=field_index)
+        # 학부 선택을 활성화
+        selected_department = st.selectbox("학부", list(departments.keys()), key="dept_ipp")
+        
+        # 선택된 학부에 따라 전공 목록 업데이트
+        majors = departments[selected_department]
+        selected_major = st.selectbox("전공", majors, key="major_ipp")
+        
+        # 선택된 전공에 따라 희망분야 목록 업데이트
+        fields = majors_fields[selected_major]
+        selected_field = st.selectbox("희망분야", fields, key="field_ipp")
         
         duration_options = ["단기 (1~4개월)", "장기 (6개월~1년)"]
         selected_duration = st.multiselect("인턴십 기간", options=duration_options, default=duration_options)
@@ -287,11 +286,11 @@ with tab3:
         gpa = st.number_input("학점 (0.0 ~ 4.5)", min_value=0.0, max_value=4.5, step=0.1, format="%.1f")
 
     # 학과 및 분야 필터링
-    filtered_ipp_data = ipp_df[ipp_df['관련학과'].apply(lambda x: st.session_state.department in x)]
-    filtered_ipp_data = filtered_ipp_data[filtered_ipp_data['분야'] == st.session_state.field]
+    filtered_ipp_data = ipp_df[ipp_df['관련학과'].apply(lambda x: selected_department in x)]
+    filtered_ipp_data = filtered_ipp_data[filtered_ipp_data['분야'] == selected_field]
     
     if filtered_ipp_data.empty:
-        st.warning(f"{st.session_state.department} {st.session_state.field} 관련 IPP 인턴십 공고가 현재 없습니다.")
+        st.warning(f"{selected_department} {selected_field} 관련 IPP 인턴십 공고가 현재 없습니다.")
     else:
         # 데이터 필터링
         filtered_ipp_data = filtered_ipp_data[filtered_ipp_data['기간_분류'].isin(selected_duration)]
